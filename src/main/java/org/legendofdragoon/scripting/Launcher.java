@@ -1,12 +1,12 @@
 package org.legendofdragoon.scripting;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.plugins.util.PluginManager;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.InputMismatchException;
-import java.util.Scanner;
 
 public final class Launcher {
   static {
@@ -14,9 +14,13 @@ public final class Launcher {
     PluginManager.addPackage("org.legendofdragoon");
   }
 
+  private static final Logger LOGGER = LogManager.getFormatterLogger(Parser.class);
+
   private Launcher() { }
 
   public static void main(final String[] args) throws IOException {
+    LOGGER.info("Decompilation for file %s", args[0]);
+
     final byte[] bytes = Files.readAllBytes(Paths.get(args[0]));
 
 /*

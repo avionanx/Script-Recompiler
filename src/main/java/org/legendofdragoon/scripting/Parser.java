@@ -3,6 +3,11 @@ package org.legendofdragoon.scripting;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+
 public class Parser {
   private static final Logger LOGGER = LogManager.getFormatterLogger(Parser.class);
 
@@ -21,6 +26,261 @@ public class Parser {
   }
 
   public void parse() {
+    final Map<Integer, String> lines = new LinkedHashMap<>();
+    final Set<Integer> functions = new HashSet<>();
+    final Set<Integer> entries = new HashSet<>();
+
+    final State state = new State(script);
+
+    for(int i = 0; i < 0x10; i++) {
+      entries.add((int)state.currentCommand());
+      state.advance();
+    }
+
+    state.jump(this.startingIndex);
+
+    while(state.hasMore()) {
+      state.step();
+
+      final long parentCommand = state.currentCommand();
+      final int callbackIndex = (int)(parentCommand & 0xffL);
+      final int childCount = (int)(parentCommand >> 8 & 0xffL);
+      final int parentParam = (int)(parentCommand >> 16);
+
+      state.advance();
+
+      final long[] children = new long[childCount];
+
+      try {
+        for(int childIndex = 0; childIndex < childCount; childIndex++) {
+          children[childIndex] = state.currentCommand();
+          Ops.byOpcode(state.op()).act(state, childIndex);
+        }
+      } catch(final IndexOutOfBoundsException | IllegalArgumentException e) {
+        lines.put(state.startIndex(), "0x%x".formatted(parentCommand));
+        state.jump(state.startIndex() + 4);
+        continue;
+      }
+
+      switch(callbackIndex) {
+        case 0x0 -> lines.put(state.startIndex(), "pause;");
+
+        case 0x1 -> lines.put(
+          state.startIndex(),
+          """
+          rewind;
+          pause;"""
+        );
+
+        case 0x2 -> {
+          lines.put(
+            state.startIndex(),
+            """
+            // Wait for n frames
+            if(%s != 0) {
+              %s--;
+              // Repeat this same if statement next frame
+              rewind;
+              pause;
+            }""".formatted(state.getWork(0), state.getWork(0))
+          );
+        }
+
+        case 0x8 -> { // Move
+          lines.put(state.startIndex(), "%s = %s;".formatted(state.getWork(1), state.getWork(0)));
+        }
+
+        case 0xa -> { // memcpy
+          lines.put(state.startIndex(), "memcpy(%s, %s, %s); // dst, src, size".formatted(state.getWork(2), state.getWork(1), state.getWork(0)));
+        }
+
+        case 0xc -> { // Set 0
+          lines.put(state.startIndex(), "%s = 0;".formatted(state.getWork(0)));
+        }
+
+        case 0x10 -> { // And
+          lines.put(state.startIndex(), "%s &= %s;".formatted(state.getWork(1), state.getWork(0)));
+        }
+
+        case 0x15 -> { // Shift left
+          lines.put(state.startIndex(), "%s <<= %s;".formatted(state.getWork(1), state.getWork(0)));
+        }
+
+        case 0x16 -> { // Shift right
+          lines.put(state.startIndex(), "%s >>= %s;".formatted(state.getWork(1), state.getWork(0)));
+        }
+
+        case 0x18 -> { // Add
+          lines.put(state.startIndex(), "%s += %s;".formatted(state.getWork(1), state.getWork(0)));
+        }
+
+        case 0x19 -> { // sub
+          lines.put(state.startIndex(), "%s -= %s;".formatted(state.getWork(1), state.getWork(0)));
+        }
+
+        case 0x1b -> { // Incr
+          lines.put(state.startIndex(), "%s++;".formatted(state.getWork(0)));
+        }
+
+        case 0x1c -> { // Decr
+          lines.put(state.startIndex(), "%s--;".formatted(state.getWork(0)));
+        }
+
+        case 0x1d -> { // Neg
+          lines.put(state.startIndex(), "%s = -%s;".formatted(state.getWork(0), state.getWork(0)));
+        }
+
+        case 0x20 -> { // Mul
+          lines.put(state.startIndex(), "%s *= %s;".formatted(state.getWork(1), state.getWork(0)));
+        }
+
+        case 0x21 -> { // Div
+          lines.put(state.startIndex(), "%s /= %s;".formatted(state.getWork(1), state.getWork(0)));
+        }
+
+        case 0x24 -> { // Mod
+          lines.put(state.startIndex(), "%s = %s %% %s;".formatted(state.getWork(1), state.getWork(0), state.getWork(1)));
+        }
+
+        case 0x28 -> { // ?
+          lines.put(state.startIndex(), "%s = ((%s >> 4) * (%s >> 4)) >> 4;".formatted(state.getWork(1), state.getWork(1), state.getWork(0)));
+        }
+
+        case 0x30 -> { // Sqrt0
+          lines.put(state.startIndex(), "%s = sqrt(%s);".formatted(state.getWork(1), state.getWork(0)));
+        }
+
+        case 0x32 -> { // Sin12
+          lines.put(state.startIndex(), "%s = sin(%s); // 12-bit fixed-point decimal".formatted(state.getWork(1), state.getWork(0)));
+        }
+
+        case 0x33 -> { // Cos12
+          lines.put(state.startIndex(), "%s = cos(%s); // 12-bit fixed-point decimal".formatted(state.getWork(1), state.getWork(0)));
+        }
+
+        case 0x38 -> { // Subfunc
+          switch(parentParam) {
+            case 0x5 -> { // Read script flag
+              lines.put(
+                state.startIndex(),
+                """
+                flag = *(%s);
+                index = flag >>> 5; // Bitset index
+                shift = flag & 0x1f; // Bit number
+                %s = scriptFlags2[index] & (1 << shift); // Read a script flag""".formatted(state.getWork(0), state.getWork(1))
+              );
+            }
+
+            case 0xc3 -> lines.put(state.startIndex(), "%s = ((uint*)0x800be358)[%s] | ((uint*)0x800bdf38)[%s]; // unknown".formatted(state.getWork(1), state.getWork(0), state.getWork(0)));
+
+            default -> lines.put(state.startIndex(), "//TODO Unknown sub-function 0x%02x".formatted(parentParam));
+          }
+        }
+
+        case 0x40 -> { // Jump
+          lines.put(state.startIndex(), "jump %s;".formatted(state.getWork(0)));
+        }
+
+        case 0x41 -> { // Jump cmp
+          final String operand = switch(parentParam) {
+            case 0 -> "<=";
+            case 1 -> "<";
+            case 2 -> "==";
+            case 3 -> "!=";
+            case 4 -> ">";
+            case 5 -> ">=";
+            case 6 -> "&";
+            case 7 -> "!&";
+            default -> "//TODO <invalid operand>";
+          };
+
+          lines.put(state.startIndex(), "if(%s %s %s) jump %s;".formatted(state.getWork(0), operand, state.getWork(1), state.getWork(2)));
+        }
+
+        case 0x42 -> { // Jump cmp 0
+          final String operand = switch(parentParam) {
+            case 0 -> "<=";
+            case 1 -> "<";
+            case 2 -> "==";
+            case 3 -> "!=";
+            case 4 -> ">";
+            case 5 -> ">=";
+            case 6 -> "&";
+            case 7 -> "!&";
+            default -> "//TODO <invalid operand>";
+          };
+
+          lines.put(state.startIndex(), "if(0 %s %s) jump %s;".formatted(operand, state.getWork(0), state.getWork(1)));
+        }
+
+        case 0x43 -> {
+          lines.put(
+            state.startIndex(),
+            """
+            %s--;
+            if(%s != 0) jump %s;""".formatted(state.getWork(0), state.getWork(0), state.getWork(1))
+          );
+        }
+
+        case 0x48 -> { // Jump and link
+          lines.put(state.startIndex(), "func %s;".formatted(state.getWork(0)));
+
+          try {
+            functions.add(Integer.parseInt(state.getWork(0).substring(2), 16));
+          } catch(final NumberFormatException ignored) { }
+        }
+
+        case 0x49 -> { // Return
+          lines.put(state.startIndex(), "return;");
+        }
+
+        case 0x4a -> { // Jump and link table
+          lines.put(state.startIndex(), "func %s + %s[%s] * 4;".formatted(state.getWork(1), state.getWork(1), state.getWork(0)));
+
+          try {
+            functions.add(Integer.parseInt(state.getWork(0).substring(2), 16));
+          } catch(final NumberFormatException ignored) { }
+        }
+
+        case 0x57 -> {
+          lines.put(state.startIndex(), "//TODO Unknown function 0x57");
+        }
+
+        default -> {
+          lines.put(state.startIndex(), "0x%x //TODO Unknown function 0x%02x, data?".formatted(parentCommand, callbackIndex));
+
+          for(int i = 0; i < children.length; i++) {
+            lines.put(state.startIndex() + (i + 1) * 4, "0x%x".formatted(children[i]));
+          }
+        }
+      }
+    }
+
+    for(final Map.Entry<Integer, String> entry : lines.entrySet()) {
+      if(functions.contains(entry.getKey())) {
+        LOGGER.info("");
+        LOGGER.info("// Function 0x%x", entry.getKey());
+      }
+
+      if(entries.contains(entry.getKey())) {
+        LOGGER.info("");
+        LOGGER.info("// Entry point 0x%x", entry.getKey());
+      }
+
+      if(!entry.getValue().contains("\n")) {
+        LOGGER.info("%06x    %s", entry.getKey(), entry.getValue());
+      } else {
+        final String[] parts = entry.getValue().split("\n");
+        LOGGER.info("%06x    %s", entry.getKey(), parts[0]);
+
+        for(int i = 1; i < parts.length; i++) {
+          LOGGER.info("          %s", parts[i]);
+        }
+      }
+    }
+  }
+
+  public void parseOld() {
     for(this.currentIndex = this.startingIndex; this.currentIndex < this.script.length; ) {
       int currentIndex = this.currentIndex;
 
