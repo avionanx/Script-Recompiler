@@ -14,8 +14,6 @@ public class Parser {
   private final byte[] script;
   private final int startingIndex;
 
-  private int currentIndex;
-
   public Parser(final byte[] script, final int startingIndex) {
     this.script = script;
     this.startingIndex = startingIndex;
@@ -56,25 +54,25 @@ public class Parser {
           children[childIndex] = state.currentCommand();
           Ops.byOpcode(state.op()).act(state, childIndex);
         }
-      } catch(final IndexOutOfBoundsException | IllegalArgumentException e) {
-        lines.put(state.startIndex(), "0x%x".formatted(parentCommand));
-        state.jump(state.startIndex() + 4);
+      } catch(final IndexOutOfBoundsException e) {
+        lines.put(state.opOffset(), "0x%x".formatted(parentCommand));
+        state.jump(state.opOffset() + 4);
         continue;
       }
 
       switch(callbackIndex) {
-        case 0x0 -> lines.put(state.startIndex(), "pause;");
+        case 0 -> lines.put(state.opOffset(), "pause;");
 
-        case 0x1 -> lines.put(
-          state.startIndex(),
+        case 1 -> lines.put(
+          state.opOffset(),
           """
           rewind;
           pause;"""
         );
 
-        case 0x2 -> {
+        case 2 ->
           lines.put(
-            state.startIndex(),
+            state.opOffset(),
             """
             // Wait for n frames
             if(%s != 0) {
@@ -82,106 +80,176 @@ public class Parser {
               // Repeat this same if statement next frame
               rewind;
               pause;
-            }""".formatted(state.getWork(0), state.getWork(0))
+            }""".formatted(state.getParam(0), state.getParam(0))
+          );
+
+        case 3 -> {
+          final String operand = switch(parentParam) {
+            case 0 -> "<=";
+            case 1 -> "<";
+            case 2 -> "==";
+            case 3 -> "!=";
+            case 4 -> ">";
+            case 5 -> ">=";
+            case 6 -> "&";
+            case 7 -> "!&";
+            default -> "//TODO <invalid operand>";
+          };
+
+          lines.put(
+            state.opOffset(),
+            """
+            if(!(%s %s %s)) {
+              rewind;
+              pause;
+            }""".formatted(state.getParam(0), operand, state.getParam(1))
           );
         }
 
-        case 0x8 -> { // Move
-          lines.put(state.startIndex(), "%s = %s;".formatted(state.getWork(1), state.getWork(0)));
+        case 4 -> {
+          final String operand = switch(parentParam) {
+            case 0 -> "<=";
+            case 1 -> "<";
+            case 2 -> "==";
+            case 3 -> "!=";
+            case 4 -> ">";
+            case 5 -> ">=";
+            case 6 -> "&";
+            case 7 -> "!&";
+            default -> "//TODO <invalid operand>";
+          };
+
+          lines.put(
+            state.opOffset(),
+            """
+            if(!(0 %s %s)) {
+              rewind;
+              pause;
+            }""".formatted(operand, state.getParam(0))
+          );
         }
 
-        case 0xa -> { // memcpy
-          lines.put(state.startIndex(), "memcpy(%s, %s, %s); // dst, src, size".formatted(state.getWork(2), state.getWork(1), state.getWork(0)));
-        }
+        case 8 -> // Move
+          lines.put(state.opOffset(), "%s = %s;".formatted(state.getParam(1), state.getParam(0)));
 
-        case 0xc -> { // Set 0
-          lines.put(state.startIndex(), "%s = 0;".formatted(state.getWork(0)));
-        }
+        case 9 -> // Broken swap
+          lines.put(state.opOffset(), """
+          { // Broken swapScript 
+            tmp = %1$s;
+            %2$s = tmp;
+            %1$s = tmp;
+          }""".formatted(state.getParam(0), state.getParam(1)));
 
-        case 0x10 -> { // And
-          lines.put(state.startIndex(), "%s &= %s;".formatted(state.getWork(1), state.getWork(0)));
-        }
+        case 10 -> // memcpy
+          lines.put(state.opOffset(), "memcpy(%s, %s, %s); // dst, src, size".formatted(state.getParam(2), state.getParam(1), state.getParam(0)));
 
-        case 0x15 -> { // Shift left
-          lines.put(state.startIndex(), "%s <<= %s;".formatted(state.getWork(1), state.getWork(0)));
-        }
+        case 12 -> // Set 0
+          lines.put(state.opOffset(), "%s = 0;".formatted(state.getParam(0)));
 
-        case 0x16 -> { // Shift right
-          lines.put(state.startIndex(), "%s >>= %s;".formatted(state.getWork(1), state.getWork(0)));
-        }
+        case 16 -> // And
+          lines.put(state.opOffset(), "%s &= %s;".formatted(state.getParam(1), state.getParam(0)));
 
-        case 0x18 -> { // Add
-          lines.put(state.startIndex(), "%s += %s;".formatted(state.getWork(1), state.getWork(0)));
-        }
+        case 17 -> // Or
+          lines.put(state.opOffset(), "%s |= %s;".formatted(state.getParam(1), state.getParam(0)));
 
-        case 0x19 -> { // sub
-          lines.put(state.startIndex(), "%s -= %s;".formatted(state.getWork(1), state.getWork(0)));
-        }
+        case 18 -> // Xor
+          lines.put(state.opOffset(), "%s ^= %s;".formatted(state.getParam(1), state.getParam(0)));
 
-        case 0x1b -> { // Incr
-          lines.put(state.startIndex(), "%s++;".formatted(state.getWork(0)));
-        }
+        case 19 -> // And+Or
+          lines.put(state.opOffset(), "%s = %s & %s | %s;".formatted(state.getParam(2), state.getParam(2), state.getParam(0), state.getParam(1)));
 
-        case 0x1c -> { // Decr
-          lines.put(state.startIndex(), "%s--;".formatted(state.getWork(0)));
-        }
+        case 20 -> // Not
+          lines.put(state.opOffset(), "%s = ~%s;".formatted(state.getParam(0), state.getParam(0)));
 
-        case 0x1d -> { // Neg
-          lines.put(state.startIndex(), "%s = -%s;".formatted(state.getWork(0), state.getWork(0)));
-        }
+        case 21 -> // Shift left
+          lines.put(state.opOffset(), "%s <<= %s;".formatted(state.getParam(1), state.getParam(0)));
 
-        case 0x20 -> { // Mul
-          lines.put(state.startIndex(), "%s *= %s;".formatted(state.getWork(1), state.getWork(0)));
-        }
+        case 22 -> // Shift right
+          lines.put(state.opOffset(), "%s >>= %s;".formatted(state.getParam(1), state.getParam(0)));
 
-        case 0x21 -> { // Div
-          lines.put(state.startIndex(), "%s /= %s;".formatted(state.getWork(1), state.getWork(0)));
-        }
+        case 24 -> // Add
+          lines.put(state.opOffset(), "%s += %s;".formatted(state.getParam(1), state.getParam(0)));
 
-        case 0x24 -> { // Mod
-          lines.put(state.startIndex(), "%s = %s %% %s;".formatted(state.getWork(1), state.getWork(0), state.getWork(1)));
-        }
+        case 25 -> // Sub
+          lines.put(state.opOffset(), "%s -= %s;".formatted(state.getParam(1), state.getParam(0)));
 
-        case 0x28 -> { // ?
-          lines.put(state.startIndex(), "%s = ((%s >> 4) * (%s >> 4)) >> 4;".formatted(state.getWork(1), state.getWork(1), state.getWork(0)));
-        }
+        case 26 -> // Sub2
+          lines.put(state.opOffset(), "%s = %s - %s;".formatted(state.getParam(1), state.getParam(0), state.getParam(1)));
 
-        case 0x30 -> { // Sqrt0
-          lines.put(state.startIndex(), "%s = sqrt(%s);".formatted(state.getWork(1), state.getWork(0)));
-        }
+        case 27 -> // Incr
+          lines.put(state.opOffset(), "%s++;".formatted(state.getParam(0)));
 
-        case 0x32 -> { // Sin12
-          lines.put(state.startIndex(), "%s = sin(%s); // 12-bit fixed-point decimal".formatted(state.getWork(1), state.getWork(0)));
-        }
+        case 28 -> // Decr
+          lines.put(state.opOffset(), "%s--;".formatted(state.getParam(0)));
 
-        case 0x33 -> { // Cos12
-          lines.put(state.startIndex(), "%s = cos(%s); // 12-bit fixed-point decimal".formatted(state.getWork(1), state.getWork(0)));
-        }
+        case 29 -> // Neg
+          lines.put(state.opOffset(), "%s = -%s;".formatted(state.getParam(0), state.getParam(0)));
 
-        case 0x38 -> { // Subfunc
+        case 30 -> // Abs
+          lines.put(state.opOffset(), "%s = |%s|;".formatted(state.getParam(0), state.getParam(0)));
+
+        case 32 -> // Mul
+          lines.put(state.opOffset(), "%s *= %s;".formatted(state.getParam(1), state.getParam(0)));
+
+        case 33 -> // Div
+          lines.put(state.opOffset(), "%s /= %s;".formatted(state.getParam(1), state.getParam(0)));
+
+        case 34 -> // Div2
+          lines.put(state.opOffset(), "%s = %s / %s;".formatted(state.getParam(1), state.getParam(0), state.getParam(1)));
+
+        case 35, 43 -> // Mod
+          lines.put(state.opOffset(), "%s %%= %s;".formatted(state.getParam(1), state.getParam(0)));
+
+        case 36, 44 -> // Mod2
+          lines.put(state.opOffset(), "%s = %s %% %s;".formatted(state.getParam(1), state.getParam(0), state.getParam(1)));
+
+        case 40 -> // ?
+          lines.put(state.opOffset(), "%s = ((%s >> 4) / (%s >> 4)) >> 4;".formatted(state.getParam(1), state.getParam(1), state.getParam(0)));
+
+        case 41 -> // ?
+          lines.put(state.opOffset(), "%s = (%s << 4) * %s << 8;".formatted(state.getParam(1), state.getParam(1), state.getParam(0)));
+
+        case 42 -> // ?
+          lines.put(state.opOffset(), "%s = (%s << 4) * %s << 8;".formatted(state.getParam(1), state.getParam(0), state.getParam(1)));
+
+        case 48 -> // Sqrt0
+          lines.put(state.opOffset(), "%s = sqrt(%s);".formatted(state.getParam(1), state.getParam(0)));
+
+        case 49 -> // Rand
+          lines.put(state.opOffset(), "%s = rand(%s);".formatted(state.getParam(1), state.getParam(0)));
+
+        case 50 -> // Sin12
+          lines.put(state.opOffset(), "%s = sin(%s); // 12-bit fixed-point decimal".formatted(state.getParam(1), state.getParam(0)));
+
+        case 51 -> // Cos12
+          lines.put(state.opOffset(), "%s = cos(%s); // 12-bit fixed-point decimal".formatted(state.getParam(1), state.getParam(0)));
+
+        case 52 -> // Ratan2
+          lines.put(state.opOffset(), "%s = ratan2(%s, %s); // 12-bit fixed-point decimal".formatted(state.getParam(2), state.getParam(0), state.getParam(1)));
+
+        case 56 -> { // Subfunc
           switch(parentParam) {
-            case 0x5 -> { // Read script flag
+            case 5 -> { // Read script flag
               lines.put(
-                state.startIndex(),
+                state.opOffset(),
                 """
                 flag = *(%s);
                 index = flag >>> 5; // Bitset index
                 shift = flag & 0x1f; // Bit number
-                %s = scriptFlags2[index] & (1 << shift); // Read a script flag""".formatted(state.getWork(0), state.getWork(1))
+                %s = scriptFlags2[index] & (1 << shift); // Read a script flag""".formatted(state.getParam(0), state.getParam(1))
               );
             }
 
-            case 0xc3 -> lines.put(state.startIndex(), "%s = ((uint*)0x800be358)[%s] | ((uint*)0x800bdf38)[%s]; // unknown".formatted(state.getWork(1), state.getWork(0), state.getWork(0)));
+            case 195 -> lines.put(state.opOffset(), "%s = ((uint*)0x800be358)[%s] | ((uint*)0x800bdf38)[%s]; // unknown".formatted(state.getParam(1), state.getParam(0), state.getParam(0)));
 
-            default -> lines.put(state.startIndex(), "//TODO Unknown sub-function 0x%02x".formatted(parentParam));
+            default -> lines.put(state.opOffset(), "subfunc(%d)".formatted(parentParam));
           }
         }
 
-        case 0x40 -> { // Jump
-          lines.put(state.startIndex(), "jump %s;".formatted(state.getWork(0)));
-        }
+        case 64 -> // Jump
+          lines.put(state.opOffset(), "this.jump(%s);".formatted(state.getParam(0)));
 
-        case 0x41 -> { // Jump cmp
+        case 65 -> { // Jump cmp
           final String operand = switch(parentParam) {
             case 0 -> "<=";
             case 1 -> "<";
@@ -194,64 +262,135 @@ public class Parser {
             default -> "//TODO <invalid operand>";
           };
 
-          lines.put(state.startIndex(), "if(%s %s %s) jump %s;".formatted(state.getWork(0), operand, state.getWork(1), state.getWork(2)));
-        }
-
-        case 0x42 -> { // Jump cmp 0
-          final String operand = switch(parentParam) {
-            case 0 -> "<=";
-            case 1 -> "<";
-            case 2 -> "==";
-            case 3 -> "!=";
-            case 4 -> ">";
-            case 5 -> ">=";
-            case 6 -> "&";
-            case 7 -> "!&";
-            default -> "//TODO <invalid operand>";
-          };
-
-          lines.put(state.startIndex(), "if(0 %s %s) jump %s;".formatted(operand, state.getWork(0), state.getWork(1)));
-        }
-
-        case 0x43 -> {
           lines.put(
-            state.startIndex(),
+            state.opOffset(),
             """
-            %s--;
-            if(%s != 0) jump %s;""".formatted(state.getWork(0), state.getWork(0), state.getWork(1))
+            if(%s %s %s) {
+              this.jump(%s);
+            }""".formatted(state.getParam(0), operand, state.getParam(1), state.getParam(2))
           );
         }
 
-        case 0x48 -> { // Jump and link
-          lines.put(state.startIndex(), "func %s;".formatted(state.getWork(0)));
+        case 66 -> { // Jump cmp 0
+          final String operand = switch(parentParam) {
+            case 0 -> "<=";
+            case 1 -> "<";
+            case 2 -> "==";
+            case 3 -> "!=";
+            case 4 -> ">";
+            case 5 -> ">=";
+            case 6 -> "&";
+            case 7 -> "!&";
+            default -> "//TODO <invalid operand>";
+          };
+
+          lines.put(
+            state.opOffset(),
+            """
+            if(0 %s %s) {
+              this.jump(%s);
+            }""".formatted(operand, state.getParam(0), state.getParam(1)));
+        }
+
+        case 67 ->
+          lines.put(
+            state.opOffset(),
+            """
+            %s--; // while loop
+            if(%s != 0) {
+              this.jump(%s);
+            }""".formatted(state.getParam(0), state.getParam(0), state.getParam(1))
+          );
+
+        case 68 -> lines.put(state.opOffset(), "this.jump(%s[%s[%s]])".formatted(state.getParam(1), state.getParam(1), state.getParam(0)));
+
+        case 72 -> { // Jump and link
+          lines.put(state.opOffset(), "gosub %s;".formatted(state.getParam(0)));
 
           try {
-            functions.add(Integer.parseInt(state.getWork(0).substring(2), 16));
+            functions.add(Integer.parseInt(state.getParam(0).substring(2), 16));
           } catch(final NumberFormatException ignored) { }
         }
 
-        case 0x49 -> { // Return
-          lines.put(state.startIndex(), "return;");
-        }
+        case 73 -> // Return
+          lines.put(state.opOffset(), "return;");
 
-        case 0x4a -> { // Jump and link table
-          lines.put(state.startIndex(), "func %s + %s[%s] * 4;".formatted(state.getWork(1), state.getWork(1), state.getWork(0)));
+        case 74 -> { // Jump and link table
+          lines.put(state.opOffset(), "gosub %s + %s[%s] * 4;".formatted(state.getParam(1), state.getParam(1), state.getParam(0)));
 
           try {
-            functions.add(Integer.parseInt(state.getWork(0).substring(2), 16));
+            functions.add(Integer.parseInt(state.getParam(0).substring(2), 16));
           } catch(final NumberFormatException ignored) { }
         }
 
-        case 0x57 -> {
-          lines.put(state.startIndex(), "//TODO Unknown function 0x57");
-        }
+        case 80 ->
+          lines.put(
+            state.opOffset(),
+            """
+            deallocate;
+            pause;
+            rewind;"""
+          );
+
+        case 82 ->
+          lines.put(
+            state.opOffset(),
+            """
+            deallocate children;
+            deallocate;
+            pause;
+            rewind;"""
+          );
+
+        case 83 ->
+          lines.put(
+            state.opOffset(),
+            """
+            deallocate %s;
+            if(%s is self) {
+              pause;
+              rewind;
+            }""".formatted(state.getParam(0), state.getParam(0))
+          );
+
+        case 86 ->
+          lines.put(
+            state.opOffset(),
+            """
+            // Fork and jump script that was forked
+            state[%1$s].fork();
+            state[%1$s].jump(*%2$s);
+            state[%1$s].storage[32] = %3$s""".formatted(state.getParam(0), state.getParam(1), state.getParam(2))
+          );
+
+        case 87 ->
+          lines.put(
+            state.opOffset(),
+            """
+            // Fork and re-enter script that was forked
+            state[%1$s].fork();
+            state[%1$s].jump(entry @ *%2$s);
+            state[%1$s].storage[32] = %3$s""".formatted(state.getParam(0), state.getParam(1), state.getParam(2))
+          );
+
+        case 88 ->
+          lines.put(
+            state.opOffset(),
+            """
+            consume child;
+            deallocate child;
+            jump to child offset;"""
+          );
+
+        case 96, 97, 98 -> lines.put(state.opOffset(), "// noop");
+
+        case 99 -> lines.put(state.opOffset(), "%s = this.stackDepth".formatted(state.getParam(0)));
+
+        case 5, 6, 7, 11, 13, 14, 15 -> lines.put(state.opOffset(), "// not implemented - pause and rewind");
 
         default -> {
-          lines.put(state.startIndex(), "0x%x //TODO Unknown function 0x%02x, data?".formatted(parentCommand, callbackIndex));
-
-          for(int i = 0; i < children.length; i++) {
-            lines.put(state.startIndex() + (i + 1) * 4, "0x%x".formatted(children[i]));
-          }
+          lines.put(state.opOffset(), "0x%x //TODO Unknown function %d, data?".formatted(parentCommand, callbackIndex));
+          state.jump(state.opOffset() + 4);
         }
       }
     }
@@ -278,114 +417,6 @@ public class Parser {
         }
       }
     }
-  }
-
-  public void parseOld() {
-    for(this.currentIndex = this.startingIndex; this.currentIndex < this.script.length; ) {
-      int currentIndex = this.currentIndex;
-
-      final long parentCommand = this.currentCommand();
-      final int callbackIndex = (int)(parentCommand & 0xffL);
-      final int childCount = (int)(parentCommand >> 8 & 0xffL);
-      final int parentParam = (int)(parentCommand >> 16);
-
-      LOGGER.info("%04x   0x%08x (children: 0x%02x, callback: 0x%02x, param: 0x%04x)", this.currentIndex, parentCommand, childCount, callbackIndex, parentParam);
-
-      this.currentIndex += 4;
-
-      for(int childIndex = 0; childIndex < childCount; childIndex++) {
-        final long childCommand = this.currentCommand();
-        final int operation = (int)(childCommand >>> 24);
-        final int param0 = (int)(childCommand >>> 16 & 0xff);
-        final int param1 = (int)(childCommand >>> 8 & 0xff);
-        final int param2 = (int)(childCommand & 0xff);
-
-        LOGGER.info("%04x   | 0x%08x (op: 0x%02x, params: 0x%02x, 0x%02x, 0x%02x)", this.currentIndex, childCommand, operation, param0, param1, param2);
-
-        this.currentIndex += 4;
-
-        switch(operation) {
-          case 0x0 -> LOGGER.info("       | work[%d] = &currentChild; // Set work array to current child (0x%08x)", childIndex, childCommand);
-          case 0x1 -> {
-            LOGGER.info("       | work[%d] = &nextChild; // Set work array to next child (0x%08x) and advance", childIndex, this.currentCommand());
-            this.currentIndex += 0x4L;
-          }
-          case 0x2 -> LOGGER.info("       | work[%d] = &storage[%d]; // Set work array to storage[param2]", childIndex, param2);
-          case 0x5 -> LOGGER.info("       | work[%d] = &global[%d]; // Set work array to global[param2]", childIndex, param2); //TODO global name?
-          case 0x9 -> LOGGER.info("       | work[%d] = &0x%x; // Set work array to script index", childIndex, currentIndex + (short)childCommand * 4);
-          case 0xa -> LOGGER.info("       | work[%d] = &0x%x + storage[%d] * 4; // Set work array to script index", childIndex, currentIndex + (short)childCommand * 4, param0);
-          default -> LOGGER.info("       | //TODO Not yet implemented");
-        }
-      }
-
-      switch(callbackIndex) {
-        case 8 -> { // Move
-          LOGGER.info("       \\ *work[1] = *work[0]; // function scriptMove");
-        }
-
-        case 0x1b -> { // Incr
-          LOGGER.info("       \\ *work[0]++; // function increment work[0] by one");
-        }
-
-        case 0x38 -> { // Subfunc
-          switch(parentParam) {
-            case 0x5 -> { // Read script flag
-              LOGGER.info("       \\ index = *work[0] >>> 5; // Bitset index");
-              LOGGER.info("       \\ shift = *work[0] & 0x1f; // Bit number");
-              LOGGER.info("       \\ *work[1] = scriptFlags2[index] & (1 << shift); // Read a script flag");
-            }
-
-            case 0xc3 -> LOGGER.info("       \\ *work[1] = ((uint*)0x800be358)[*work[0]] | ((uint*)0x800bdf38)[*work[0]]; // unknown");
-
-            default -> LOGGER.info("       \\ //TODO Unknown sub-function 0x%02x", parentParam);
-          }
-        }
-
-        case 0x40 -> { // Jump
-          LOGGER.info("       \\ goto *work[0]; // jump");
-        }
-
-        case 0x42 -> { // Jump cmp 0
-          final String operand = switch(parentParam) {
-            case 0 -> "<=";
-            case 1 -> "<";
-            case 2 -> "==";
-            case 3 -> "!=";
-            case 4 -> ">";
-            case 5 -> ">=";
-            case 6 -> "&";
-            case 7 -> "!&";
-            default -> "//TODO <invalid operand>";
-          };
-
-          LOGGER.info("       \\ if 0 %s *work[0] goto *work[1]; // conditional jump", operand);
-        }
-
-        case 0x48 -> { // Jump and link
-          LOGGER.info("       | push 0x%x; // push return address to stack", this.currentIndex);
-          LOGGER.info("       \\ goto *work[0]; // jump");
-        }
-
-        case 0x49 -> { // Return
-          LOGGER.info("       \\ pop; // pop return address");
-          LOGGER.info("       \\ return; // return to return address");
-        }
-
-        default -> {
-          LOGGER.info("       \\ //TODO Unknown function 0x%02x", callbackIndex);
-        }
-      }
-    }
-  }
-
-  private long currentCommand() {
-    long value = 0;
-
-    for(int i = 0; i < 4; i++) {
-      value |= (long)(this.script[this.currentIndex + i] & 0xff) << i * 8;
-    }
-
-    return value;
   }
 
   private static final String[] functions = {

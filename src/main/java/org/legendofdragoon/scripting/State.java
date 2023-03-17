@@ -2,25 +2,29 @@ package org.legendofdragoon.scripting;
 
 public class State {
   private final byte[] script;
-  private final String[] work = new String[8];
+  private final String[] params = new String[10];
 
-  private int startIndex;
-  private int scriptIndex;
+  private int opOffset;
+  private int currentOffset;
 
   public State(final byte[] script) {
     this.script = script;
   }
 
   public void step() {
-    this.startIndex = this.scriptIndex;
+    this.opOffset = this.currentOffset;
   }
 
-  public int startIndex() {
-    return this.startIndex;
+  public int opOffset() {
+    return this.opOffset;
+  }
+
+  public int currentOffset() {
+    return this.opOffset;
   }
 
   public long currentCommand() {
-    return MathHelper.get(this.script, this.scriptIndex, 4);
+    return MathHelper.get(this.script, this.currentOffset, 4);
   }
 
   public long commandAt(final int index) {
@@ -28,49 +32,49 @@ public class State {
   }
 
   public int op() {
-    return this.script[this.scriptIndex + 3] & 0xff;
+    return this.script[this.currentOffset + 3] & 0xff;
   }
 
   public int param0() {
-    return this.script[this.scriptIndex + 2] & 0xff;
+    return this.script[this.currentOffset] & 0xff;
   }
 
   public int param1() {
-    return this.script[this.scriptIndex + 1] & 0xff;
+    return this.script[this.currentOffset + 1] & 0xff;
   }
 
   public int param2() {
-    return this.script[this.scriptIndex] & 0xff;
+    return this.script[this.currentOffset + 2] & 0xff;
   }
 
   public State advance() {
-    this.scriptIndex += 0x4;
+    this.currentOffset += 0x4;
     return this;
   }
 
   public State jump(final int index) {
-    this.scriptIndex = index;
+    this.currentOffset = index;
     return this;
   }
 
   public boolean hasMore() {
-    return this.scriptIndex < this.script.length;
+    return this.currentOffset < this.script.length;
   }
 
   public int index() {
-    return this.scriptIndex;
+    return this.currentOffset;
   }
 
-  public State setWork(final int childIndex, final String value) {
-    this.work[childIndex] = value;
+  public State setParam(final int childIndex, final String value) {
+    this.params[childIndex] = value;
     return this;
   }
 
-  public State setWork(final int childIndex, final long value) {
-    return this.setWork(childIndex, "0x" + Long.toHexString(value));
+  public State setParam(final int childIndex, final long value) {
+    return this.setParam(childIndex, "0x" + Long.toHexString(value));
   }
 
-  public String getWork(final int childIndex) {
-    return this.work[childIndex];
+  public String getParam(final int childIndex) {
+    return this.params[childIndex];
   }
 }
