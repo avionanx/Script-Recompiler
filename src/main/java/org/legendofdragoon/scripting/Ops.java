@@ -20,7 +20,7 @@ public enum Ops {
   GAMEVAR_3(0xe, (state, child) -> state.setParam(child, "gameVar[%d]".formatted(state.param0() + state.param1())).advance()),
   GAMEVAR_ARRAY_3(0xf, (state, child) -> state.setParam(child, "gameVar[%d][%d]".formatted(state.param0(), state.param1())).advance()),
   GAMEVAR_ARRAY_4(0x10, (state, child) -> state.setParam(child, "gameVar[%d + this.storage[%d]][%d]".formatted(state.param0(), state.param1(), state.param2())).advance()),
-  _11(0x11, (state, child) -> { throw new RuntimeException("Param type 0x11 not yet supported"); }),
+  _11(0x11, (state, child) -> state.setParam(child, "gameVar[%d + %d][this.storage[%d]]".formatted(state.param0(), state.param1(), state.param2())).advance()),
   _12(0x12, (state, child) -> { throw new RuntimeException("Param type 0x12 not yet supported"); }),
   INLINE_5(0x13, (state, child) -> state.setParam(child, "*0x%x".formatted(state.opOffset() + ((short)state.currentCommand() + state.param2()) * 4)).advance()),
   INLINE_6(0x14, (state, child) -> state.advance().setParam(child, "0x%1$x[0x%1$x[this.storage[%2$d]] + %3$d]".formatted(state.currentOffset(), state.param0(), state.param1())).advance()),
