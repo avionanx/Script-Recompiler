@@ -3,6 +3,7 @@ package org.legendofdragoon.scripting;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -42,18 +43,17 @@ public class Parser {
 
       final long parentCommand = state.currentCommand();
       final int callbackIndex = (int)(parentCommand & 0xffL);
-      final int childCount = (int)(parentCommand >> 8 & 0xffL);
+      final int paramCount = (int)(parentCommand >> 8 & 0xffL);
       final int parentParam = (int)(parentCommand >> 16);
 
       state.advance();
 
-      final long[] children = new long[childCount];
-
       try {
-        for(int childIndex = 0; childIndex < childCount; childIndex++) {
-          children[childIndex] = state.currentCommand();
-          Ops.byOpcode(state.op()).act(state, childIndex);
+        for(int paramIndex = 0; paramIndex < paramCount; paramIndex++) {
+          Ops.byOpcode(state.op()).act(state, paramIndex);
         }
+
+        state.setParamCount(paramCount);
       } catch(final IndexOutOfBoundsException e) {
         lines.put(state.opOffset(), "0x%x".formatted(parentCommand));
         state.jump(state.opOffset() + 4);
@@ -242,7 +242,12 @@ public class Parser {
 
             case 195 -> lines.put(state.opOffset(), "%s = ((uint*)0x800be358)[%s] | ((uint*)0x800bdf38)[%s]; // unknown".formatted(state.getParam(1), state.getParam(0), state.getParam(0)));
 
-            default -> lines.put(state.opOffset(), "subfunc(%d)".formatted(parentParam));
+            default -> {
+              final String[] params = new String[state.getParamCount()];
+              Arrays.setAll(params, state::getParam);
+
+              lines.put(state.opOffset(), "subfunc(%d)(%s)".formatted(parentParam, String.join(", ", params)));
+            }
           }
         }
 

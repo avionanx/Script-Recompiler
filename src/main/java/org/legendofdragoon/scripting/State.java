@@ -3,6 +3,7 @@ package org.legendofdragoon.scripting;
 public class State {
   private final byte[] script;
   private final String[] params = new String[10];
+  private int paramCount = 0;
 
   private int opOffset;
   private int currentOffset;
@@ -65,16 +66,25 @@ public class State {
     return this.currentOffset;
   }
 
-  public State setParam(final int childIndex, final String value) {
-    this.params[childIndex] = value;
+  public State setParam(final int paramIndex, final String value) {
+    this.params[paramIndex] = value;
     return this;
   }
 
-  public State setParam(final int childIndex, final long value) {
-    return this.setParam(childIndex, "0x" + Long.toHexString(value));
+  public State setParam(final int paramIndex, final long value) {
+    return this.setParam(paramIndex, "0x" + Long.toHexString(value));
   }
 
-  public String getParam(final int childIndex) {
-    return this.params[childIndex];
+  public String getParam(final int paramIndex) {
+    return this.params[paramIndex];
+  }
+
+  public State setParamCount(final int count) {
+    this.paramCount = count;
+    return this;
+  }
+
+  public int getParamCount() {
+    return this.paramCount;
   }
 }
