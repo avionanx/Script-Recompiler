@@ -1,32 +1,63 @@
 package org.legendofdragoon.scripting;
 
-import java.util.function.BiConsumer;
-
 public enum Ops {
-  IMMEDIATE(0x0, (state, child) -> state.setParam(child, state.currentCommand()).advance()),
-  NEXT_IMMEDIATE(0x1, (state, child) -> state.advance().setParam(child, state.currentCommand()).advance()),
-  STORAGE(0x2, (state, child) -> state.setParam(child, "this.storage[%d]".formatted(state.param0())).advance()),
-  OTHER_OTHER_STORAGE(0x3, (state, child) -> state.setParam(child, "state[state[this.storage[%d]].storage[%d]].storage[%d]".formatted(state.param0(), state.param1(), state.param2())).advance()),
-  OTHER_STORAGE_OFFSET(0x4, (state, child) -> state.setParam(child, "state[this.storage[%d]].storage[%d + this.storage[%d]]".formatted(state.param0(), state.param1(), state.param2())).advance()),
-  GAMEVAR_1(0x5, (state, child) -> state.setParam(child, "gameVar[%d]".formatted(state.param0())).advance()),
-  GAMEVAR_2(0x6, (state, child) -> state.setParam(child, "gameVar[%d + this.storage[%d]]".formatted(state.param0(), state.param1())).advance()),
-  GAMEVAR_ARRAY_1(0x7, (state, child) -> state.setParam(child, "gameVar[%d][storage[%d]]".formatted(state.param0(), state.param1())).advance()),
-  GAMEVAR_ARRAY_2(0x8, (state, child) -> state.setParam(child, "gameVar[%d + this.storage[%d]][this.storage[%d]]".formatted(state.param0(), state.param1(), state.param2())).advance()),
-  INLINE_1(0x9, (state, child) -> state.setParam(child, "*0x%x".formatted(state.opOffset() + (short)state.currentCommand() * 4)).advance()),
-  INLINE_2(0xa, (state, child) -> state.setParam(child, "0x%x[storage[%d]]".formatted(state.opOffset() + (short)state.currentCommand() * 4, state.param2())).advance()),
-  INLINE_3(0xb, (state, child) -> state.setParam(child, "0x%x[0x%x[storage[%d]]]".formatted(state.opOffset() + (short)state.currentCommand() * 4, state.opOffset() + (short)state.currentCommand() * 4, state.param2())).advance()),
-  INLINE_4(0xc, (state, child) -> state.advance().setParam(child, "%1$x[%1$x[this.storage[%2$d]] + this.storage[%3$d]]".formatted(state.currentOffset(), state.param0(), state.param1())).advance()),
-  OTHER_STORAGE(0xd, (state, child) -> state.setParam(child, "script[this.storage[%d]].storage[%d]".formatted(state.param0(), state.param1() + state.param2())).advance()),
-  GAMEVAR_3(0xe, (state, child) -> state.setParam(child, "gameVar[%d]".formatted(state.param0() + state.param1())).advance()),
-  GAMEVAR_ARRAY_3(0xf, (state, child) -> state.setParam(child, "gameVar[%d][%d]".formatted(state.param0(), state.param1())).advance()),
-  GAMEVAR_ARRAY_4(0x10, (state, child) -> state.setParam(child, "gameVar[%d + this.storage[%d]][%d]".formatted(state.param0(), state.param1(), state.param2())).advance()),
-  _11(0x11, (state, child) -> state.setParam(child, "gameVar[%d + %d][this.storage[%d]]".formatted(state.param0(), state.param1(), state.param2())).advance()),
-  _12(0x12, (state, child) -> { throw new RuntimeException("Param type 0x12 not yet supported"); }),
-  INLINE_5(0x13, (state, child) -> state.setParam(child, "*0x%x".formatted(state.opOffset() + ((short)state.currentCommand() + state.param2()) * 4)).advance()),
-  INLINE_6(0x14, (state, child) -> state.advance().setParam(child, "0x%1$x[0x%1$x[this.storage[%2$d]] + %3$d]".formatted(state.currentOffset(), state.param0(), state.param1())).advance()),
-  _15(0x15, (state, child) -> { throw new RuntimeException("Param type 0x15 not yet supported"); }),
-  _16(0x16, (state, child) -> { throw new RuntimeException("Param type 0x16 not yet supported"); }),
-  _17(0x17, (state, child) -> state.advance().setParam(child, "%1$x[%1$x[%2$d] + %3$d]".formatted(state.currentOffset(), state.param0(), state.param1())).advance()),
+  YIELD(0, "yield"),
+  REWIND(1, "rewind"),
+  WAIT(2, "wait", new String[] {"frames"}),
+  COMP_WAIT(3, "comp_wait", "operator", new String[] {"left, right"}),
+  COMP_WAIT_0(4, "comp_wait", "operator", new String[] {"right"}),
+  REWIND5(5, "rewind"),
+  REWIND6(6, "rewind"),
+  REWIND7(7, "rewind"),
+  MOVE(8, "move", new String[] {"source", "dest"}),
+  SWAP_BROKEN(9, "swap_broken", new String[] {"sourceDest", "dest"}),
+  MEMCPY(10, "memcpy", new String[] {"size", "src", "dest"}),
+  REWIND11(11, "rewind"),
+  MOVE_0(12, "move", new String[] {"dest"}),
+  REWIND13(13, "rewind"),
+  REWIND14(14, "rewind"),
+  REWIND15(15, "rewind"),
+  AND(16, "and", new String[] {"right", "left"}),
+  OR(17, "or", new String[] {"right", "left"}),
+  XOR(18, "xor", new String[] {"and", "or", "left"}),
+  ANDOR(19, "andor", new String[] {"right", "left"}),
+  NOT(20, "not", new String[] {"right", "left"}),
+  SHL(21, "shl", new String[] {"right", "left"}),
+  SHR(22, "shr", new String[] {"right", "left"}),
+  ADD(24, "add", new String[] {"amount", "operand"}),
+  SUB(25, "sub", new String[] {"amount", "operand"}),
+  SUB_REV(26, "sub_rev", new String[] {"amount", "operand/dest"}),
+  INCR(27, "incr", new String[] {"operand"}),
+  DECR(28, "decr", new String[] {"operand"}),
+  NEG(29, "neg", new String[] {"operand"}),
+  ABS(30, "abs", new String[] {"operand"}),
+  MUL(32, "mul", new String[] {"amount", "operand"}),
+  DIV(33, "div", new String[] {"amount", "operand"}),
+  DIV_REV(34, "div_rev", new String[] {"amount", "operand/dest"}),
+  MOD(35, "mod", new String[] {"amount", "operand"}),
+  MOD_REV(36, "mod_rev", new String[] {"amount", "operand/dest"}),
+  UNK_40(40, "unk_40", new String[] {"?", "?"}),
+  UNK_41(41, "unk_41", new String[] {"?", "?"}),
+  UNK_42(42, "unk_42", new String[] {"?", "?"}),
+  MOD43(43, "mod", new String[] {"amount", "operand"}),
+  MOD_REV44(44, "mod_rev", new String[] {"amount", "operand/dest"}),
+  SQRT(48, "sqrt", new String[] {"value", "dest"}),
+  RAND(49, "rand", new String[] {"bound", "dest"}),
+  SIN_12(50, "sin_12", new String[] {"angle", "dest"}),
+  COS_12(51, "cos_12", new String[] {"angle", "dest"}),
+  ATAN2_12(52, "atan2_12", new String[] {"y", "x", "dest"}),
+  CALL(56, "call", "index"),
+  JUMP(64, "jump", new String[] {"addr"}),
+  COMP_JUMP(65, "comp_jump", "operand", new String[] {"left", "right", "addr"}),
+  COMP_JUMP_0(66, "comp_jump", "operand", new String[] {"right", "addr"}),
+  WHILE(67, "while", new String[] {"counter", "addr"}),
+  JUMP_TABLE(68, "jump_table", new String[] {"index", "table"}),
+  GOSUB(72, "gosub", new String[] {"addr"}),
+  RETURN(73, "return"),
+  GOSUB_TABLE(74, "gosub_table", new String[] {"index", "table"}),
+  DEALLOCATE(80, "deallocate"),
+  DEALLOCATE82(82, "deallocate"),
+  DEALLOCATE_OTHER(83, "deallocate_other", new String[] {"index"}),
   ;
 
   public static Ops byOpcode(final int opcode) {
@@ -36,18 +67,39 @@ public enum Ops {
       }
     }
 
-    return Ops.IMMEDIATE;
+    return null;
   }
 
   public final int opcode;
-  private final BiConsumer<State, Integer> action;
+  public final String name;
+  public final String headerParam;
+  public final String[] params;
 
-  Ops(final int opcode, final BiConsumer<State, Integer> action) {
+  Ops(final int opcode, final String name, final String headerParam, final String[] params) {
     this.opcode = opcode;
-    this.action = action;
+    this.name = name;
+    this.params = params;
+    this.headerParam = headerParam;
   }
 
-  public void act(final State state, final int childIndex) {
-    this.action.accept(state, childIndex);
+  Ops(final int opcode, final String name, final String headerParam) {
+    this.opcode = opcode;
+    this.name = name;
+    this.params = new String[0];
+    this.headerParam = headerParam;
+  }
+
+  Ops(final int opcode, final String name, final String[] params) {
+    this.opcode = opcode;
+    this.name = name;
+    this.params = params;
+    this.headerParam = null;
+  }
+
+  Ops(final int opcode, final String name) {
+    this.opcode = opcode;
+    this.name = name;
+    this.params = new String[0];
+    this.headerParam = null;
   }
 }

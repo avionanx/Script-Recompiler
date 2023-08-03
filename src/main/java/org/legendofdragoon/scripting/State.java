@@ -12,6 +12,10 @@ public class State {
     this.script = script;
   }
 
+  public int length() {
+    return this.script.length;
+  }
+
   public void step() {
     this.opOffset = this.currentOffset;
   }
@@ -24,12 +28,12 @@ public class State {
     return this.opOffset;
   }
 
-  public long currentCommand() {
-    return MathHelper.get(this.script, this.currentOffset, 4);
+  public int currentCommand() {
+    return (int)MathHelper.get(this.script, this.currentOffset, 4);
   }
 
-  public long commandAt(final int index) {
-    return MathHelper.get(this.script, index, 4);
+  public int commandAt(final int index) {
+    return (int)MathHelper.get(this.script, index, 4);
   }
 
   public int op() {

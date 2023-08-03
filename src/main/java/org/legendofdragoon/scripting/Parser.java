@@ -32,7 +32,7 @@ public class Parser {
     final State state = new State(script);
 
     for(int i = 0; i < 0x10; i++) {
-      entries.add((int)state.currentCommand());
+      entries.add(state.currentCommand());
       state.advance();
     }
 
@@ -42,15 +42,15 @@ public class Parser {
       state.step();
 
       final long parentCommand = state.currentCommand();
-      final int callbackIndex = (int)(parentCommand & 0xffL);
-      final int paramCount = (int)(parentCommand >> 8 & 0xffL);
+      final int callbackIndex = (int)(parentCommand & 0xff);
+      final int paramCount = (int)(parentCommand >> 8 & 0xff);
       final int parentParam = (int)(parentCommand >> 16);
 
       state.advance();
 
       try {
         for(int paramIndex = 0; paramIndex < paramCount; paramIndex++) {
-          Ops.byOpcode(state.op()).act(state, paramIndex);
+          Parameters.byOpcode(state.op()).act(state, paramIndex);
         }
 
         state.setParamCount(paramCount);
