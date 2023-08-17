@@ -5,7 +5,7 @@ public class State {
   private final String[] params = new String[10];
   private int paramCount = 0;
 
-  private int opOffset;
+  private int headerOffset;
   private int currentOffset;
 
   public State(final byte[] script) {
@@ -17,26 +17,34 @@ public class State {
   }
 
   public void step() {
-    this.opOffset = this.currentOffset;
+    this.headerOffset = this.currentOffset;
   }
 
-  public int opOffset() {
-    return this.opOffset;
+  public int headerOffset() {
+    return this.headerOffset;
+  }
+
+  public void headerOffset(final int opOffset) {
+    this.headerOffset = opOffset;
   }
 
   public int currentOffset() {
-    return this.opOffset;
+    return this.currentOffset;
   }
 
-  public int currentCommand() {
+  public void currentOffset(final int currentOffset) {
+    this.currentOffset = currentOffset;
+  }
+
+  public int currentWord() {
     return (int)MathHelper.get(this.script, this.currentOffset, 4);
   }
 
-  public int commandAt(final int index) {
+  public int wordAt(final int index) {
     return (int)MathHelper.get(this.script, index, 4);
   }
 
-  public int op() {
+  public int paramType() {
     return this.script[this.currentOffset + 3] & 0xff;
   }
 
@@ -53,7 +61,11 @@ public class State {
   }
 
   public State advance() {
-    this.currentOffset += 0x4;
+    return this.advance(1);
+  }
+
+  public State advance(final int words) {
+    this.currentOffset += words * 0x4;
     return this;
   }
 
@@ -66,28 +78,29 @@ public class State {
     return this.currentOffset < this.script.length;
   }
 
-  public int index() {
-    return this.currentOffset;
-  }
-
+  @Deprecated
   public State setParam(final int paramIndex, final String value) {
     this.params[paramIndex] = value;
     return this;
   }
 
+  @Deprecated
   public State setParam(final int paramIndex, final long value) {
     return this.setParam(paramIndex, "0x" + Long.toHexString(value));
   }
 
+  @Deprecated
   public String getParam(final int paramIndex) {
     return this.params[paramIndex];
   }
 
+  @Deprecated
   public State setParamCount(final int count) {
     this.paramCount = count;
     return this;
   }
 
+  @Deprecated
   public int getParamCount() {
     return this.paramCount;
   }

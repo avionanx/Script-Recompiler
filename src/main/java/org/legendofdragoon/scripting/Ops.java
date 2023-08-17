@@ -4,7 +4,7 @@ public enum Ops {
   YIELD(0, "yield"),
   REWIND(1, "rewind"),
   WAIT(2, "wait", new String[] {"frames"}),
-  COMP_WAIT(3, "comp_wait", "operator", new String[] {"left, right"}),
+  COMP_WAIT(3, "comp_wait", "operator", new String[] {"left", "right"}),
   COMP_WAIT_0(4, "comp_wait", "operator", new String[] {"right"}),
   REWIND5(5, "rewind"),
   REWIND6(6, "rewind"),
@@ -58,6 +58,13 @@ public enum Ops {
   DEALLOCATE(80, "deallocate"),
   DEALLOCATE82(82, "deallocate"),
   DEALLOCATE_OTHER(83, "deallocate_other", new String[] {"index"}),
+  FORK(86, "fork", new String[] {"index", "addr", "p2"}),
+  FORK_REENTER(87, "fork_reenter", new String[] {"index", "entrypoint", "p2"}),
+  CONSUME(88, "consume"),
+  NOOP_96(96, "noop", new String[] {"?", "?"}),
+  NOOP_97(97, "noop"),
+  NOOP_98(98, "noop"),
+  DEPTH(99, "depth", new String[] {"dest"}),
   ;
 
   public static Ops byOpcode(final int opcode) {
