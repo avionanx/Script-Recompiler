@@ -171,18 +171,17 @@ public class Parser2 {
           this.probeBranch(offset1);
         }, () -> System.out.printf("Skipping GOSUB at %x due to unknowable parameter%n", this.state.headerOffset()));
 
-        case REWIND, RETURN, DEALLOCATE, DEALLOCATE82 -> {
+        case REWIND, RETURN, DEALLOCATE, DEALLOCATE82, CONSUME -> {
           break outer;
         }
 
-//        case FORK_REENTER -> System.err.printf("Unhandled FORK_REENTER @ %x%n", this.state.headerOffset()); // Don't need to handle re-entry because we're already probing all entry points
+        // Don't need to handle re-entry because we're already probing all entry points
+        // case FORK_REENTER -> System.err.printf("Unhandled FORK_REENTER @ %x%n", this.state.headerOffset());
 
         case FORK -> paramValues[0].ifPresentOrElse(offset1 -> {
           this.reentries.add(offset1);
           this.probeBranch(offset1);
         }, () -> System.out.printf("Skipping FORK at %x due to unknowable parameter%n", this.state.headerOffset()));
-
-        case CONSUME -> System.err.printf("Unhandled CONSUME @ %x%n", this.state.headerOffset()); //TODO
 
         case GOSUB_TABLE -> paramValues[1].ifPresentOrElse(offset1 -> {
           final int startOffset = offset1;
