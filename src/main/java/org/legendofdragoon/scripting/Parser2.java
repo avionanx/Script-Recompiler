@@ -20,7 +20,10 @@ public class Parser2 {
   private final Set<Integer> hits = new HashSet<>();
   private final Set<Integer> branches = new HashSet<>();
   private final Set<Integer> subs = new HashSet<>();
+  private final Set<Integer> subTables = new HashSet<>();
   private final Set<Integer> reentries = new HashSet<>();
+  private final Set<Integer> jumpTables = new HashSet<>();
+  private final Set<Integer> jumpTableDests = new HashSet<>();
 
   public static void main(final String[] args) throws IOException, CsvException {
     final byte[] bytes = Files.readAllBytes(Paths.get("28"));
@@ -38,7 +41,10 @@ public class Parser2 {
     this.hits.clear();
     this.branches.clear();
     this.subs.clear();
+    this.subTables.clear();
     this.reentries.clear();
+    this.jumpTables.clear();
+    this.jumpTableDests.clear();
 
     this.getEntrypoints();
 
@@ -139,7 +145,24 @@ public class Parser2 {
           }
         }
 
-        case JMP_TABLE -> System.err.printf("Unhandled JMP_TABLE @ %x%n", this.state.headerOffset()); //TODO
+        case JMP_TABLE -> {
+          paramValues[1].ifPresentOrElse(offset1 -> {
+            final int startOffset = offset1;
+            int subOffset;
+
+            this.jumpTables.add(startOffset);
+
+            while(this.isValidOp(subOffset = startOffset + this.state.wordAt(offset1) * 0x4)) {
+              this.jumpTableDests.add(subOffset);
+              this.probeBranch(subOffset);
+              offset1 += 0x4;
+            }
+          }, () -> System.out.printf("Skipping JMP_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
+
+          if(paramValues[1].isPresent()) {
+            break outer;
+          }
+        }
 
         case GOSUB -> paramValues[0].ifPresentOrElse(offset1 -> {
           this.subs.add(offset1);
@@ -157,6 +180,8 @@ public class Parser2 {
         case GOSUB_TABLE -> paramValues[1].ifPresentOrElse(offset1 -> {
           final int startOffset = offset1;
           int subOffset;
+
+          this.subTables.add(startOffset);
 
           while(this.isValidOp(subOffset = startOffset + this.state.wordAt(offset1) * 0x4)) {
             this.subs.add(subOffset);
@@ -251,9 +276,24 @@ public class Parser2 {
         System.out.println("; SUBROUTINE");
       }
 
+      if(this.subTables.contains(this.state.currentOffset())) {
+        System.out.println();
+        System.out.println("; SUBROUTINE TABLE");
+      }
+
       if(this.reentries.contains(this.state.currentOffset())) {
         System.out.println();
         System.out.println("; FORK RE-ENTRY");
+      }
+
+      if(this.jumpTables.contains(this.state.currentOffset())) {
+        System.out.println();
+        System.out.println("; JUMP TABLE");
+      }
+
+      if(this.jumpTableDests.contains(this.state.currentOffset())) {
+        System.out.println();
+        System.out.println("; JUMP TABLE DESTINATION");
       }
 
       if(this.hits.contains(this.state.currentOffset())) {
