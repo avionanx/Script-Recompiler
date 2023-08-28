@@ -16,6 +16,7 @@ public class Parser2 {
 
   private final State state;
 
+  private int entrypointCount;
   private final Set<Integer> entrypoints = new HashSet<>();
   private final Set<Integer> hits = new HashSet<>();
   private final Set<Integer> branches = new HashSet<>();
@@ -37,6 +38,7 @@ public class Parser2 {
   }
 
   public void parse() {
+    this.entrypointCount = 0;
     this.entrypoints.clear();
     this.hits.clear();
     this.branches.clear();
@@ -211,6 +213,7 @@ public class Parser2 {
 
       this.entrypoints.add(entrypoint);
       this.state.advance();
+      this.entrypointCount++;
     }
   }
 
@@ -266,7 +269,7 @@ public class Parser2 {
     System.out.println();
     System.out.println();
 
-    this.state.jump(this.entrypoints.size() * 4);
+    this.state.jump(this.entrypointCount * 4);
 
     while(this.state.hasMore()) {
       state.step();
