@@ -334,6 +334,18 @@ public class Parser2 {
         if(op == Ops.CALL && this.meta.methods[opParam].params.length != 0) {
           System.out.print(" ; ");
           System.out.print(Arrays.stream(this.meta.methods[opParam].params).map(Object::toString).collect(Collectors.joining(", ")));
+        } else if(op.params.length != 0 || op.headerParam != null) {
+          System.out.print(" ; ");
+
+          if(op.headerParam != null) {
+            System.out.print(op.headerParam);
+
+            if(op.params.length != 0) {
+              System.out.print(", ");
+            }
+          }
+
+          System.out.print(String.join(", ", op.params));
         }
 
         System.out.println();
