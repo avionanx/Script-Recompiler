@@ -49,7 +49,7 @@ public enum Parameters {
     this.action = action;
   }
 
-  public void act(final State state, final int childIndex) {
-    this.action.accept(state, childIndex);
+  public void act(final State state, final int paramIndex) {
+    this.action.accept(state, paramIndex);
   }
 }

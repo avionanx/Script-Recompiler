@@ -37,11 +37,11 @@ public class State {
   }
 
   public int currentWord() {
-    return (int)MathHelper.get(this.script, this.currentOffset, 4);
+    return this.wordAt(this.currentOffset);
   }
 
   public int wordAt(final int index) {
-    return (int)MathHelper.get(this.script, index, 4);
+    return MathHelper.get(this.script, index, 4);
   }
 
   public int paramType() {
@@ -85,8 +85,8 @@ public class State {
   }
 
   @Deprecated
-  public State setParam(final int paramIndex, final long value) {
-    return this.setParam(paramIndex, "0x" + Long.toHexString(value));
+  public State setParam(final int paramIndex, final int value) {
+    return this.setParam(paramIndex, "0x" + Integer.toHexString(value));
   }
 
   @Deprecated
