@@ -1,6 +1,6 @@
 package org.legendofdragoon.scripting;
 
-public enum Ops {
+public enum OpType {
   YIELD(0, "yield"),
   REWIND(1, "rewind"),
   WAIT(2, "wait", new String[] {"frames"}),
@@ -67,8 +67,8 @@ public enum Ops {
   DEPTH(99, "depth", new String[] {"dest"}),
   ;
 
-  public static Ops byOpcode(final int opcode) {
-    for(final Ops op : Ops.values()) {
+  public static OpType byOpcode(final int opcode) {
+    for(final OpType op : OpType.values()) {
       if(op.opcode == opcode) {
         return op;
       }
@@ -79,34 +79,34 @@ public enum Ops {
 
   public final int opcode;
   public final String name;
-  public final String headerParam;
-  public final String[] params;
+  public final String headerParamName;
+  public final String[] paramNames;
 
-  Ops(final int opcode, final String name, final String headerParam, final String[] params) {
+  OpType(final int opcode, final String name, final String headerParamName, final String[] paramNames) {
     this.opcode = opcode;
     this.name = name;
-    this.params = params;
-    this.headerParam = headerParam;
+    this.paramNames = paramNames;
+    this.headerParamName = headerParamName;
   }
 
-  Ops(final int opcode, final String name, final String headerParam) {
+  OpType(final int opcode, final String name, final String headerParamName) {
     this.opcode = opcode;
     this.name = name;
-    this.params = new String[0];
-    this.headerParam = headerParam;
+    this.paramNames = new String[0];
+    this.headerParamName = headerParamName;
   }
 
-  Ops(final int opcode, final String name, final String[] params) {
+  OpType(final int opcode, final String name, final String[] paramNames) {
     this.opcode = opcode;
     this.name = name;
-    this.params = params;
-    this.headerParam = null;
+    this.paramNames = paramNames;
+    this.headerParamName = null;
   }
 
-  Ops(final int opcode, final String name) {
+  OpType(final int opcode, final String name) {
     this.opcode = opcode;
     this.name = name;
-    this.params = new String[0];
-    this.headerParam = null;
+    this.paramNames = new String[0];
+    this.headerParamName = null;
   }
 }

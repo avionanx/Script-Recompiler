@@ -50,7 +50,7 @@ public class Parser {
 
       try {
         for(int paramIndex = 0; paramIndex < paramCount; paramIndex++) {
-          Parameters.byOpcode(state.paramType()).act(state, paramIndex);
+          ParameterType.byOpcode(state.paramType()).act(state, paramIndex);
         }
 
         state.setParamCount(paramCount);

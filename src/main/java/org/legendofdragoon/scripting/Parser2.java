@@ -1,75 +1,65 @@
 package org.legendofdragoon.scripting;
 
 import com.opencsv.exceptions.CsvException;
+import org.legendofdragoon.scripting.tokens.Data;
+import org.legendofdragoon.scripting.tokens.Entrypoint;
+import org.legendofdragoon.scripting.tokens.Op;
+import org.legendofdragoon.scripting.tokens.Param;
+import org.legendofdragoon.scripting.tokens.Script;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.OptionalInt;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class Parser2 {
   private final ScriptMeta meta;
-
   private final State state;
 
-  private int entrypointCount;
-  private final Set<Integer> entrypoints = new HashSet<>();
-  private final Set<Integer> hits = new HashSet<>();
-  private final Set<Integer> branches = new HashSet<>();
-  private final Set<Integer> subs = new HashSet<>();
-  private final Set<Integer> subTables = new HashSet<>();
-  private final Set<Integer> reentries = new HashSet<>();
-  private final Set<Integer> jumpTables = new HashSet<>();
-  private final Set<Integer> jumpTableDests = new HashSet<>();
-
   public static void main(final String[] args) throws IOException, CsvException {
+    final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
+
     final byte[] bytes = Files.readAllBytes(Paths.get("28"));
-    final Parser2 parser = new Parser2(bytes);
-    parser.parse();
+    final Parser2 parser = new Parser2(bytes, meta);
+    final Script script = parser.parse();
+
+    final String output = new Translator().translate(script, meta);
+    System.out.println(output);
+    System.out.println();
   }
 
-  public Parser2(final byte[] script) throws IOException, CsvException {
-    this.meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
+  public Parser2(final byte[] script, final ScriptMeta meta) {
+    this.meta = meta;
     this.state = new State(script);
   }
 
-  public void parse() {
-    this.entrypointCount = 0;
-    this.entrypoints.clear();
-    this.hits.clear();
-    this.branches.clear();
-    this.subs.clear();
-    this.subTables.clear();
-    this.reentries.clear();
-    this.jumpTables.clear();
-    this.jumpTableDests.clear();
+  public Script parse() {
+    final Script script = new Script(this.state.length() / 4);
 
-    this.getEntrypoints();
+    this.getEntrypoints(script);
 
-    for(final int entrypoint : this.entrypoints) {
-      this.probeBranch(entrypoint);
+    for(final int entrypoint : script.entrypoints) {
+      this.probeBranch(script, entrypoint);
     }
+
+    this.fillData(script);
 
     System.out.println("Probing complete");
     System.out.println();
 
-    this.outputDisassembly();
+//    this.outputDisassembly();
 
-    System.out.println();
+    return script;
   }
 
-  private void probeBranch(final int offset) {
+  private void probeBranch(final Script script, final int offset) {
     // Made our way into another branch, no need to parse again
-    if(this.branches.contains(offset)) {
+    if(script.branches.contains(offset)) {
       return;
     }
 
     System.out.printf("Probing branch %x%n", offset);
-    this.branches.add(offset);
+    script.branches.add(offset);
 
     final int oldHeaderOffset = this.state.headerOffset();
     final int oldCurrentOffset = this.state.currentOffset();
@@ -80,95 +70,114 @@ public class Parser2 {
     while(this.state.hasMore()) {
       this.state.step();
 
-      final int opCode = this.state.currentWord();
-      final Ops op = this.parseHeader(this.state.currentOffset());
-      this.hits.add(this.state.currentOffset());
-      this.state.advance();
+      final Op op = this.parseHeader(this.state.currentOffset());
 
       if(op == null) { // Invalid op or invalid param count
         //TODO ran into invalid code
         break;
       }
 
-      final int paramCount = opCode >> 8 & 0xff;
-      final int opParam = opCode >> 16;
+      this.state.advance();
 
-      final Parameters[] params = new Parameters[paramCount];
-      final OptionalInt[] paramValues = new OptionalInt[paramCount];
-      for(int i = 0; i < params.length; i++) {
-        final Parameters param = Parameters.byOpcode(this.state.paramType());
-        params[i] = param;
-        paramValues[i] = this.parseParamValue(this.state, param);
+      int entryOffset = this.state.headerOffset() / 4;
+      script.entries[entryOffset++] = op;
+
+      for(int i = 0; i < op.params.length; i++) {
+        final ParameterType paramType = ParameterType.byOpcode(this.state.paramType());
+
+        final String label;
+        if(paramType.isInline()) {
+          label = "LABEL_" + script.getLabelCount();
+        } else {
+          label = null;
+        }
+
+        final int[] rawValues = new int[paramType.width];
+        for(int n = 0; n < paramType.width; n++) {
+          rawValues[n] = this.state.wordAt(this.state.currentOffset() + n);
+        }
+
+        final Param param = new Param(this.state.currentOffset(), paramType, rawValues, this.parseParamValue(this.state, paramType), label);
+
+        if(label != null && param.resolvedValue.isPresent()) {
+          script.addLabel(param.resolvedValue.getAsInt(), label);
+        }
+
+        for(int n = 0; n < paramType.width; n++) {
+          script.entries[entryOffset++] = param;
+        }
+
+        op.params[i] = param;
       }
 
-      switch(op) {
+      switch(op.type) {
         case CALL -> {
-          final ScriptMeta.ScriptMethod method = this.meta.methods[opParam];
+          final ScriptMeta.ScriptMethod method = this.meta.methods[op.headerParam];
 
-          if(this.meta.methods[opParam].params.length != params.length) {
-            throw new RuntimeException("CALL " + opParam + " has wrong number of args! " + method.params.length + "/" + params.length);
+          if(this.meta.methods[op.headerParam].params.length != op.params.length) {
+            throw new RuntimeException("CALL " + op.headerParam + " has wrong number of args! " + method.params.length + "/" + op.params.length);
           }
 
-          for(int i = 0; i < params.length; i++) {
+          for(int i = 0; i < op.params.length; i++) {
             final ScriptMeta.ScriptParam param = method.params[i];
 
             if(!"none".equalsIgnoreCase(param.branch)) {
-              paramValues[i].ifPresentOrElse(offset1 -> {
+              op.params[i].resolvedValue.ifPresentOrElse(offset1 -> {
                 if("gosub".equalsIgnoreCase(param.branch)) {
-                  this.subs.add(offset1);
+                  script.subs.add(offset1);
                 } else if("reentry".equalsIgnoreCase(param.branch)) {
-                  this.reentries.add(offset1);
+                  script.reentries.add(offset1);
                 }
 
-                this.probeBranch(offset1);
+                this.probeBranch(script, offset1);
               }, () -> System.out.printf("Skipping CALL at %x due to unknowable parameter%n", this.state.headerOffset()));
             }
           }
         }
 
         case JMP -> {
-          paramValues[0].ifPresentOrElse(this::probeBranch, () -> System.out.printf("Skipping JUMP at %x due to unknowable parameter%n", this.state.headerOffset()));
+          op.params[0].resolvedValue.ifPresentOrElse(offset1 -> this.probeBranch(script, offset1), () -> System.out.printf("Skipping JUMP at %x due to unknowable parameter%n", this.state.headerOffset()));
 
-          if(paramValues[0].isPresent()) {
+          if(op.params[0].resolvedValue.isPresent()) {
             break outer;
           }
         }
 
         case JMP_COND, JMP_COND_0 -> {
-          paramValues[op.params.length - 1].ifPresentOrElse(addr -> {
-            this.probeBranch(this.state.currentOffset());
-            this.probeBranch(addr);
+          op.params[op.params.length - 1].resolvedValue.ifPresentOrElse(addr -> {
+            this.probeBranch(script, this.state.currentOffset());
+            this.probeBranch(script, addr);
           }, () ->
-            System.out.printf("Skipping %s at %x due to unknowable parameter%n", op, this.state.headerOffset())
+            System.out.printf("Skipping %s at %x due to unknowable parameter%n", op.type, this.state.headerOffset())
           );
 
-          if(paramValues[op.params.length - 1].isPresent()) {
+          if(op.params[op.params.length - 1].resolvedValue.isPresent()) {
             break outer;
           }
         }
 
         case JMP_TABLE -> {
-          paramValues[1].ifPresentOrElse(offset1 -> {
+          op.params[1].resolvedValue.ifPresentOrElse(offset1 -> {
             final int startOffset = offset1;
             int subOffset;
 
-            this.jumpTables.add(startOffset);
+            script.jumpTables.add(startOffset);
 
             while(this.isValidOp(subOffset = startOffset + this.state.wordAt(offset1) * 0x4)) {
-              this.jumpTableDests.add(subOffset);
-              this.probeBranch(subOffset);
+              script.jumpTableDests.add(subOffset);
+              this.probeBranch(script, subOffset);
               offset1 += 0x4;
             }
           }, () -> System.out.printf("Skipping JMP_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
 
-          if(paramValues[1].isPresent()) {
+          if(op.params[1].resolvedValue.isPresent()) {
             break outer;
           }
         }
 
-        case GOSUB -> paramValues[0].ifPresentOrElse(offset1 -> {
-          this.subs.add(offset1);
-          this.probeBranch(offset1);
+        case GOSUB -> op.params[0].resolvedValue.ifPresentOrElse(offset1 -> {
+          script.subs.add(offset1);
+          this.probeBranch(script, offset1);
         }, () -> System.out.printf("Skipping GOSUB at %x due to unknowable parameter%n", this.state.headerOffset()));
 
         case REWIND, RETURN, DEALLOCATE, DEALLOCATE82, CONSUME -> {
@@ -178,20 +187,20 @@ public class Parser2 {
         // Don't need to handle re-entry because we're already probing all entry points
         // case FORK_REENTER -> System.err.printf("Unhandled FORK_REENTER @ %x%n", this.state.headerOffset());
 
-        case FORK -> paramValues[0].ifPresentOrElse(offset1 -> {
-          this.reentries.add(offset1);
-          this.probeBranch(offset1);
+        case FORK -> op.params[0].resolvedValue.ifPresentOrElse(offset1 -> {
+          script.reentries.add(offset1);
+          this.probeBranch(script, offset1);
         }, () -> System.out.printf("Skipping FORK at %x due to unknowable parameter%n", this.state.headerOffset()));
 
-        case GOSUB_TABLE -> paramValues[1].ifPresentOrElse(offset1 -> {
+        case GOSUB_TABLE -> op.params[1].resolvedValue.ifPresentOrElse(offset1 -> {
           final int startOffset = offset1;
           int subOffset;
 
-          this.subTables.add(startOffset);
+          script.subTables.add(startOffset);
 
           while(this.isValidOp(subOffset = startOffset + this.state.wordAt(offset1) * 0x4)) {
-            this.subs.add(subOffset);
-            this.probeBranch(subOffset);
+            script.subs.add(subOffset);
+            this.probeBranch(script, subOffset);
             offset1 += 0x4;
           }
         }, () -> System.out.printf("Skipping GOSUB_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
@@ -202,7 +211,15 @@ public class Parser2 {
     this.state.currentOffset(oldCurrentOffset);
   }
 
-  private void getEntrypoints() {
+  private void fillData(final Script script) {
+    for(int i = 0; i < script.entries.length; i++) {
+      if(script.entries[i] == null) {
+        script.entries[i] = new Data(i * 0x4, this.state.wordAt(i * 0x4));
+      }
+    }
+  }
+
+  private void getEntrypoints(final Script script) {
     for(int i = 0; i < 0x10; i++) {
       final int entrypoint = state.currentWord();
 
@@ -210,27 +227,28 @@ public class Parser2 {
         break;
       }
 
-      this.entrypoints.add(entrypoint);
+      script.entries[i] = new Entrypoint(i * 0x4, entrypoint);
+      script.entrypoints.add(entrypoint);
       this.state.advance();
-      this.entrypointCount++;
     }
   }
 
-  private Ops parseHeader(final int offset) {
-    final int op = this.state.wordAt(offset);
-    final Ops opcode = Ops.byOpcode(op & 0xff);
+  private Op parseHeader(final int offset) {
+    final int opcode = this.state.wordAt(offset);
+    final OpType type = OpType.byOpcode(opcode & 0xff);
 
-    if(opcode == null) {
+    if(type == null) {
       return null;
     }
 
     //TODO once we implement all subfuncs, add their param counts too
-    final int paramCount = op >> 8 & 0xff;
-    if(opcode != Ops.CALL && opcode.params.length != paramCount) {
+    final int paramCount = opcode >> 8 & 0xff;
+    if(type != OpType.CALL && type.paramNames.length != paramCount) {
       return null;
     }
 
-    return opcode;
+    final int opParam = opcode >> 16;
+    return new Op(offset, type, opParam, paramCount);
   }
 
   private boolean isValidOp(final int offset) {
@@ -249,110 +267,18 @@ public class Parser2 {
     return true;
   }
 
-  private OptionalInt parseParamValue(final State state, final Parameters param) {
+  private OptionalInt parseParamValue(final State state, final ParameterType param) {
     final OptionalInt value = switch(param) {
       case IMMEDIATE -> OptionalInt.of(state.currentWord());
       case NEXT_IMMEDIATE -> OptionalInt.of(state.wordAt(state.currentOffset() + 4));
       //TODO case STORAGE is this possible?
-      case INLINE_1 -> OptionalInt.of(state.headerOffset() + (short)state.currentWord() * 0x4);
+      case INLINE_1, INLINE_2, INLINE_3 -> OptionalInt.of(state.headerOffset() + (short)state.currentWord() * 0x4);
+      case INLINE_4, INLINE_6, INLINE_7 -> OptionalInt.of(state.headerOffset() + 0x4);
+      case INLINE_5 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.param2()) * 4);
       default -> OptionalInt.empty();
     };
 
     this.state.advance(param.width);
     return value;
-  }
-
-  private void outputDisassembly() {
-    System.out.println("Entrypoints:");
-    this.entrypoints.stream().sorted().forEach(entrypoint -> System.out.printf("%x ", entrypoint));
-    System.out.println();
-    System.out.println();
-
-    this.state.jump(this.entrypointCount * 4);
-
-    while(this.state.hasMore()) {
-      state.step();
-
-      if(this.entrypoints.contains(this.state.currentOffset())) {
-        System.out.println();
-        System.out.println("; ENTRYPOINT");
-      }
-
-      if(this.subs.contains(this.state.currentOffset())) {
-        System.out.println();
-        System.out.println("; SUBROUTINE");
-      }
-
-      if(this.subTables.contains(this.state.currentOffset())) {
-        System.out.println();
-        System.out.println("; SUBROUTINE TABLE");
-      }
-
-      if(this.reentries.contains(this.state.currentOffset())) {
-        System.out.println();
-        System.out.println("; FORK RE-ENTRY");
-      }
-
-      if(this.jumpTables.contains(this.state.currentOffset())) {
-        System.out.println();
-        System.out.println("; JUMP TABLE");
-      }
-
-      if(this.jumpTableDests.contains(this.state.currentOffset())) {
-        System.out.println();
-        System.out.println("; JUMP TABLE DESTINATION");
-      }
-
-      if(this.hits.contains(this.state.currentOffset())) {
-        final int opCode = this.state.currentWord();
-        final Ops op = this.parseHeader(this.state.currentOffset());
-        final int opParam = opCode >> 16;
-
-        System.out.printf("%x %s", this.state.currentOffset(), op);
-        this.state.advance();
-
-        if(op == Ops.CALL) {
-          System.out.printf(" %s", this.meta.methods[opParam].name);
-        } else {
-          if(op.headerParam != null) {
-            System.out.printf(" 0x%x", opParam);
-          }
-        }
-
-        // Advance over params
-        final int paramCount = opCode >> 8 & 0xff;
-        for(int paramIndex = 0; paramIndex < paramCount; paramIndex++) {
-          if(paramIndex != 0 || op.headerParam != null) {
-            System.out.print(',');
-          }
-
-          final Parameters param = Parameters.byOpcode(this.state.paramType());
-          param.act(this.state, paramIndex);
-          System.out.printf(" %s", this.state.getParam(paramIndex));
-        }
-
-        if(op == Ops.CALL && this.meta.methods[opParam].params.length != 0) {
-          System.out.print(" ; ");
-          System.out.print(Arrays.stream(this.meta.methods[opParam].params).map(Object::toString).collect(Collectors.joining(", ")));
-        } else if(op.params.length != 0 || op.headerParam != null) {
-          System.out.print(" ; ");
-
-          if(op.headerParam != null) {
-            System.out.print(op.headerParam);
-
-            if(op.params.length != 0) {
-              System.out.print(", ");
-            }
-          }
-
-          System.out.print(String.join(", ", op.params));
-        }
-
-        System.out.println();
-      } else {
-        System.out.printf("%x DATA 0x%x%n", this.state.currentOffset(), this.state.currentWord());
-        this.state.advance();
-      }
-    }
   }
 }
