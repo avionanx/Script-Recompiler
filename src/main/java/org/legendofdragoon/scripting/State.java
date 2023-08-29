@@ -2,8 +2,6 @@ package org.legendofdragoon.scripting;
 
 public class State {
   private final byte[] script;
-  private final String[] params = new String[10];
-  private int paramCount = 0;
 
   private int headerOffset;
   private int currentOffset;
@@ -76,32 +74,5 @@ public class State {
 
   public boolean hasMore() {
     return this.currentOffset < this.script.length;
-  }
-
-  @Deprecated
-  public State setParam(final int paramIndex, final String value) {
-    this.params[paramIndex] = value;
-    return this;
-  }
-
-  @Deprecated
-  public State setParam(final int paramIndex, final int value) {
-    return this.setParam(paramIndex, "0x" + Integer.toHexString(value));
-  }
-
-  @Deprecated
-  public String getParam(final int paramIndex) {
-    return this.params[paramIndex];
-  }
-
-  @Deprecated
-  public State setParamCount(final int count) {
-    this.paramCount = count;
-    return this;
-  }
-
-  @Deprecated
-  public int getParamCount() {
-    return this.paramCount;
   }
 }

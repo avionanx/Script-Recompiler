@@ -1,39 +1,23 @@
 package org.legendofdragoon.scripting;
 
-import com.opencsv.exceptions.CsvException;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
 import org.legendofdragoon.scripting.tokens.Op;
 import org.legendofdragoon.scripting.tokens.Param;
 import org.legendofdragoon.scripting.tokens.Script;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.OptionalInt;
 
-public class Parser2 {
+public class Disassembler {
   private final ScriptMeta meta;
   private final State state;
 
-  public static void main(final String[] args) throws IOException, CsvException {
-    final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
-
-    final byte[] bytes = Files.readAllBytes(Paths.get("28"));
-    final Parser2 parser = new Parser2(bytes, meta);
-    final Script script = parser.parse();
-
-    final String output = new Translator().translate(script, meta);
-    System.out.println(output);
-    System.out.println();
-  }
-
-  public Parser2(final byte[] script, final ScriptMeta meta) {
+  public Disassembler(final byte[] script, final ScriptMeta meta) {
     this.meta = meta;
     this.state = new State(script);
   }
 
-  public Script parse() {
+  public Script disassemble() {
     final Script script = new Script(this.state.length() / 4);
 
     this.getEntrypoints(script);
@@ -46,8 +30,6 @@ public class Parser2 {
 
     System.out.println("Probing complete");
     System.out.println();
-
-//    this.outputDisassembly();
 
     return script;
   }
