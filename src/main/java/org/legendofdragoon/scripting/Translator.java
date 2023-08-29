@@ -41,11 +41,11 @@ public class Translator {
         }
       }
 
-      if(entry instanceof Entrypoint entrypoint) {
+      if(entry instanceof final Entrypoint entrypoint) {
         builder.append("%x ".formatted(entry.address)).append("ENTRYPOINT %x".formatted(entrypoint.destination)).append('\n');
-      } else if(entry instanceof Data data) {
+      } else if(entry instanceof final Data data) {
         builder.append("%x ".formatted(entry.address)).append("DATA %x".formatted(data.value)).append('\n');
-      } else if(entry instanceof Op op) {
+      } else if(entry instanceof final Op op) {
         builder.append("%x ".formatted(entry.address)).append(op.type.name);
 
         if(op.type == OpType.CALL) {

@@ -76,7 +76,7 @@ public class Disassembler {
 
         final int[] rawValues = new int[paramType.width];
         for(int n = 0; n < paramType.width; n++) {
-          rawValues[n] = this.state.wordAt(this.state.currentOffset() + n);
+          rawValues[n] = this.state.wordAt(this.state.currentOffset() + n * 0x4);
         }
 
         final Param param = new Param(this.state.currentOffset(), paramType, rawValues, this.parseParamValue(this.state, paramType), label);
