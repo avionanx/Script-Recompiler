@@ -7,8 +7,12 @@ import org.apache.logging.log4j.core.config.plugins.util.PluginManager;
 import org.legendofdragoon.scripting.tokens.Script;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 public final class Launcher {
   static {
@@ -27,10 +31,49 @@ public final class Launcher {
 
     final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
 
-    final Disassembler parser = new Disassembler(bytes, meta);
-    final Script script = parser.disassemble();
+    final Disassembler disassembler = new Disassembler(meta);
+    final Compiler compiler = new Compiler();
+    final Lexer lexer = new Lexer(meta);
+    final Translator translator = new Translator();
 
-    final String output = new Translator().translate(script, meta);
-    LOGGER.info(output);
+    final Script script = disassembler.disassemble(bytes);
+
+    final int[] original = bytesToInts(bytes);
+    final int[] directRecompile = compiler.compile(script);
+
+    if(original.length != directRecompile.length) {
+      System.err.println("Length mismatch");
+      return;
+    }
+
+    for(int i = 0; i < directRecompile.length; i++) {
+      if(original[i] != directRecompile[i]) {
+        System.err.println("Mismatch at " + i);
+      }
+    }
+
+    final String decompiledOutput = translator.translate(script, meta);
+
+    final Script lexedDecompiledSource = lexer.lex(decompiledOutput);
+    final int[] recompiledSource = compiler.compile(lexedDecompiledSource);
+    final Script redecompiledSource =  disassembler.disassemble(intsToBytes(recompiledSource));
+
+    final String recompiledOutput = translator.translate(redecompiledSource, meta);
+
+    Files.writeString(Path.of("a"), decompiledOutput, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+    Files.writeString(Path.of("b"), recompiledOutput, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+  }
+
+  private static int[] bytesToInts(final byte[] bytes) {
+    final ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+    final int[] ints = new int[bytes.length / 4];
+    buffer.asIntBuffer().get(ints);
+    return ints;
+  }
+
+  private static byte[] intsToBytes(final int[] ints) {
+    final ByteBuffer buffer = ByteBuffer.allocate(ints.length * 0x4).order(ByteOrder.LITTLE_ENDIAN);
+    buffer.asIntBuffer().put(ints);
+    return buffer.array();
   }
 }

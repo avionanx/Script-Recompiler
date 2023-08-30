@@ -4,20 +4,24 @@ import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
 import org.legendofdragoon.scripting.tokens.Op;
 import org.legendofdragoon.scripting.tokens.Param;
+import org.legendofdragoon.scripting.tokens.PointerTable;
 import org.legendofdragoon.scripting.tokens.Script;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.OptionalInt;
 
 public class Disassembler {
   private final ScriptMeta meta;
-  private final State state;
+  private State state;
 
-  public Disassembler(final byte[] script, final ScriptMeta meta) {
+  public Disassembler(final ScriptMeta meta) {
     this.meta = meta;
-    this.state = new State(script);
   }
 
-  public Script disassemble() {
+  public Script disassemble(final byte[] bytes) {
+    this.state = new State(bytes);
+
     final Script script = new Script(this.state.length() / 4);
 
     this.getEntrypoints(script);
@@ -125,7 +129,7 @@ public class Disassembler {
           }
         }
 
-        case JMP_COND, JMP_COND_0 -> {
+        case JMP_CMP, JMP_CMP_0 -> {
           op.params[op.params.length - 1].resolvedValue.ifPresentOrElse(addr -> {
             this.probeBranch(script, this.state.currentOffset());
             this.probeBranch(script, addr);
@@ -175,16 +179,31 @@ public class Disassembler {
         }, () -> System.out.printf("Skipping FORK at %x due to unknowable parameter%n", this.state.headerOffset()));
 
         case GOSUB_TABLE -> op.params[1].resolvedValue.ifPresentOrElse(offset1 -> {
+          if(script.subTables.contains(offset1)) {
+            return;
+          }
+
           final int startOffset = offset1;
           int subOffset;
 
           script.subTables.add(startOffset);
+          final List<Integer> jumpTableEntries = new ArrayList<>();
 
-          while(this.isValidOp(subOffset = startOffset + this.state.wordAt(offset1) * 0x4)) {
+          while(script.entries[offset1 / 4] == null && this.isValidOp(subOffset = startOffset + this.state.wordAt(offset1) * 0x4)) {
+            jumpTableEntries.add(subOffset);
             script.subs.add(subOffset);
             this.probeBranch(script, subOffset);
             offset1 += 0x4;
           }
+
+          final String[] labels = new String[jumpTableEntries.size()];
+          for(int i = 0; i < jumpTableEntries.size(); i++) {
+            final int address = startOffset + i * 0x4;
+            labels[i] = "JMP_%x_%d".formatted(startOffset, i);
+            script.addLabel(startOffset + this.state.wordAt(address) * 0x4, labels[i]);
+          }
+
+          script.entries[startOffset / 0x4] = new PointerTable(startOffset, labels);
         }, () -> System.out.printf("Skipping GOSUB_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
       }
     }
@@ -209,8 +228,11 @@ public class Disassembler {
         break;
       }
 
-      script.entries[i] = new Entrypoint(i * 0x4, entrypoint);
+      final String label = "ENTRYPOINT_" + i;
+
+      script.entries[i] = new Entrypoint(i * 0x4, label);
       script.entrypoints.add(entrypoint);
+      script.addLabel(entrypoint, label);
       this.state.advance();
     }
   }

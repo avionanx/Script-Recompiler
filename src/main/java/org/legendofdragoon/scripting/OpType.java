@@ -4,8 +4,8 @@ public enum OpType {
   YIELD(0, "yield"),
   REWIND(1, "rewind"),
   WAIT(2, "wait", new String[] {"frames"}),
-  WAIT_COND(3, "wait_cond", "operator", new String[] {"left", "right"}),
-  WAIT_COND_0(4, "wait_cond", "operator", new String[] {"right"}),
+  WAIT_CMP(3, "wait_cmp", "operator", new String[] {"left", "right"}),
+  WAIT_CMP_0(4, "wait_cmp", "operator", new String[] {"right"}),
   REWIND5(5, "rewind"),
   REWIND6(6, "rewind"),
   REWIND7(7, "rewind"),
@@ -48,8 +48,8 @@ public enum OpType {
   ATAN2_12(52, "atan2_12", new String[] {"y", "x", "dest"}),
   CALL(56, "call", "index"),
   JMP(64, "jmp", new String[] {"addr"}),
-  JMP_COND(65, "jump_cond", "operand", new String[] {"left", "right", "addr"}),
-  JMP_COND_0(66, "jump_cond", "operand", new String[] {"right", "addr"}),
+  JMP_CMP(65, "jmp_cmp", "operand", new String[] {"left", "right", "addr"}),
+  JMP_CMP_0(66, "jmp_cmp", "operand", new String[] {"right", "addr"}),
   WHILE(67, "while", new String[] {"counter", "addr"}),
   JMP_TABLE(68, "jmp_table", new String[] {"index", "table"}),
   GOSUB(72, "gosub", new String[] {"addr"}),
@@ -70,6 +70,16 @@ public enum OpType {
   public static OpType byOpcode(final int opcode) {
     for(final OpType op : OpType.values()) {
       if(op.opcode == opcode) {
+        return op;
+      }
+    }
+
+    return null;
+  }
+
+  public static OpType byName(final String name) {
+    for(final OpType op : OpType.values()) {
+      if(op.name.equalsIgnoreCase(name)) {
         return op;
       }
     }

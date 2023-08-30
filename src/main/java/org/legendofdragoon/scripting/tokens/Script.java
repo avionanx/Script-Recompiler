@@ -23,8 +23,8 @@ public class Script {
     this.entries = new Entry[length];
   }
 
-  public void addLabel(final int address, final String name) {
-    this.labels.computeIfAbsent(address, k -> new ArrayList<>()).add(name);
+  public void addLabel(final int destAddress, final String name) {
+    this.labels.computeIfAbsent(destAddress, k -> new ArrayList<>()).add(name);
     this.labelCount++;
   }
 

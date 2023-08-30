@@ -7,4 +7,9 @@ public class Data extends Entry {
     super(address);
     this.value = value;
   }
+
+  @Override
+  public String toString() {
+    return "data " + this.value;
+  }
 }

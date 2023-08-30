@@ -2,6 +2,7 @@ package org.legendofdragoon.scripting.tokens;
 
 import org.legendofdragoon.scripting.ParameterType;
 
+import java.util.Arrays;
 import java.util.OptionalInt;
 
 public class Param extends Entry {
@@ -16,5 +17,10 @@ public class Param extends Entry {
     this.rawValues = rawValues;
     this.resolvedValue = resolvedValue;
     this.label = label;
+  }
+
+  @Override
+  public String toString() {
+    return "param " + Arrays.toString(this.rawValues) + ' ' + this.label;
   }
 }

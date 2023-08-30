@@ -13,4 +13,9 @@ public class Op extends Entry {
     this.headerParam = headerParam;
     this.params = new Param[type == OpType.CALL ? paramCount : type.paramNames.length];
   }
+
+  @Override
+  public String toString() {
+    return "op " + this.type.name;
+  }
 }

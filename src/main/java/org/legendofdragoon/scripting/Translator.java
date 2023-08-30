@@ -5,6 +5,7 @@ import org.legendofdragoon.scripting.tokens.Entry;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
 import org.legendofdragoon.scripting.tokens.Op;
 import org.legendofdragoon.scripting.tokens.Param;
+import org.legendofdragoon.scripting.tokens.PointerTable;
 import org.legendofdragoon.scripting.tokens.Script;
 
 import java.util.Arrays;
@@ -14,11 +15,8 @@ public class Translator {
   public String translate(final Script script, final ScriptMeta meta) {
     final StringBuilder builder = new StringBuilder();
 
-    for(final Entry entry : script.entries) {
-      if(script.entrypoints.contains(entry.address)) {
-        builder.append("\n; ENTRYPOINT\n");
-      }
-
+    for(int entryIndex = 0; entryIndex < script.entries.length; entryIndex++) {
+      Entry entry = script.entries[entryIndex];
       if(script.subs.contains(entry.address)) {
         builder.append("\n; SUBROUTINE\n");
       }
@@ -42,9 +40,20 @@ public class Translator {
       }
 
       if(entry instanceof final Entrypoint entrypoint) {
-        builder.append("%x ".formatted(entry.address)).append("ENTRYPOINT %x".formatted(entrypoint.destination)).append('\n');
+        builder.append("%x ".formatted(entry.address)).append("entrypoint :").append(entrypoint.destination).append('\n');
       } else if(entry instanceof final Data data) {
-        builder.append("%x ".formatted(entry.address)).append("DATA %x".formatted(data.value)).append('\n');
+        builder.append("%x ".formatted(entry.address)).append("data 0x%x".formatted(data.value)).append('\n');
+      } else if(entry instanceof final PointerTable rel) {
+        if(rel.labels.length == 0) {
+          throw new RuntimeException("Empty jump table %x".formatted(rel.address));
+        }
+
+        for(int i = 0; i < rel.labels.length; i++) {
+          builder.append("%x ".formatted(entry.address + i * 0x4)).append("rel :").append(rel.labels[i]).append('\n');
+          entryIndex++;
+        }
+
+        entryIndex--;
       } else if(entry instanceof final Op op) {
         builder.append("%x ".formatted(entry.address)).append(op.type.name);
 
@@ -52,6 +61,14 @@ public class Translator {
           builder.append(' ').append(meta.methods[op.headerParam].name);
         } else if(op.type.headerParamName != null) {
           builder.append(" 0x%x".formatted(op.headerParam));
+        }
+
+        if(op.type == OpType.WAIT_CMP_0 || op.type == OpType.JMP_CMP_0) {
+          builder.append(", 0");
+        }
+
+        if(op.type == OpType.MOV_0) {
+          builder.append(" 0,");
         }
 
         for(int paramIndex = 0; paramIndex < op.params.length; paramIndex++) {
@@ -79,6 +96,8 @@ public class Translator {
         }
 
         builder.append('\n');
+      } else if(!(entry instanceof Param)) {
+        throw new RuntimeException("Unknown entry " + entry.getClass().getSimpleName());
       }
     }
 
@@ -98,7 +117,7 @@ public class Translator {
         case _15 -> throw new RuntimeException("Param type 0x15 not yet supported");
         case _16 -> throw new RuntimeException("Param type 0x16 not yet supported");
         case INLINE_7 -> "inl[%1$s[%1$s[%2$d] + %3$d]]".formatted(label, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
-        default -> ':' + param.label;
+        default -> "inl[:" + param.label + ']';
       };
     }
 
@@ -106,8 +125,8 @@ public class Translator {
       case IMMEDIATE -> "0x%x".formatted(param.rawValues[0]);
       case NEXT_IMMEDIATE -> "0x%x".formatted(param.rawValues[1]);
       case STORAGE -> "stor[%d]".formatted(param.rawValues[0] & 0xff);
-      case OTHER_OTHER_STORAGE -> "state[state[stor[%d]].stor[%d]].stor[%d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff, param.rawValues[0] >> 16 & 0xff);
-      case OTHER_STORAGE_OFFSET -> "state[stor[%d]].stor[%d + this.stor[%d]]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff, param.rawValues[0] >> 16 & 0xff);
+      case OTHER_OTHER_STORAGE -> "stor[stor[stor[%d], %d], %d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff, param.rawValues[0] >> 16 & 0xff);
+      case OTHER_STORAGE_OFFSET -> "stor[stor[%d], %d + stor[%d]]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff, param.rawValues[0] >> 16 & 0xff);
       case GAMEVAR_1 -> "var[%d]".formatted(param.rawValues[0] & 0xff);
       case GAMEVAR_2 -> "var[%d + stor[%d]]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff);
       case GAMEVAR_ARRAY_1 -> "var[%d][stor[%d]]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff);
@@ -116,7 +135,7 @@ public class Translator {
       case INLINE_2 -> "inl[0x%x[stor[%d]]]".formatted(op.address + (short)param.rawValues[0] * 4, param.rawValues[0] >> 16 & 0xff);
       case INLINE_3 -> "inl[0x%1$x[0x%1$x[stor[%2$d]]]]".formatted(op.address + (short)param.rawValues[0] * 4, param.rawValues[0] >> 16 & 0xff);
       case INLINE_4 -> "inl[0x%1$x[0x%1$x[stor[%2$d]] + stor[%3$d]]]".formatted(op.address, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
-      case OTHER_STORAGE -> "script[stor[%d]].stor[%d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff + param.rawValues[0] >> 16 & 0xff);
+      case OTHER_STORAGE -> "stor[stor[%d], %d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff + param.rawValues[0] >> 16 & 0xff);
       case GAMEVAR_3 -> "var[%d + %d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff);
       case GAMEVAR_ARRAY_3 -> "var[%d][%d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff);
       case GAMEVAR_ARRAY_4 -> "var[%d + stor[%d]][%d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff, param.rawValues[0] >> 16 & 0xff);
