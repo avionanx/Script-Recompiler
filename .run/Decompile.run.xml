@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Launcher" type="Application" factoryName="Application" nameIsGenerated="true">
+  <configuration default="false" name="Decompile" type="Application" factoryName="Application">
     <option name="ALTERNATIVE_JRE_PATH" value="corretto-17" />
-    <option name="MAIN_CLASS_NAME" value="org.legendofdragoon.scripting.Launcher" />
+    <option name="MAIN_CLASS_NAME" value="org.legendofdragoon.scripting.launch.Decompile" />
     <module name="script-parser.main" />
     <option name="PROGRAM_PARAMETERS" value="$FilePrompt$" />
     <extension name="coverage">

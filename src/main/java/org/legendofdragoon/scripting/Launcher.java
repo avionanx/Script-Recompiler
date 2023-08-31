@@ -56,6 +56,9 @@ public final class Launcher {
 
     final Script lexedDecompiledSource = lexer.lex(decompiledOutput);
     final int[] recompiledSource = compiler.compile(lexedDecompiledSource);
+
+    Files.write(Path.of("recompiled"), intsToBytes(recompiledSource), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
     final Script redecompiledSource =  disassembler.disassemble(intsToBytes(recompiledSource));
 
     final String recompiledOutput = translator.translate(redecompiledSource, meta);

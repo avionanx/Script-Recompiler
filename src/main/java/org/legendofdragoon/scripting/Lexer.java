@@ -30,7 +30,7 @@ public class Lexer {
   private static final Pattern CALL_PATTERN = Pattern.compile("^[a-z_]\\w*::[a-z_]\\w*$", Pattern.CASE_INSENSITIVE);
 
   private static final Pattern STORAGE_PATTERN = Pattern.compile("^stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
-  private static final Pattern OTHER_OTHER_STORAGE_PATTERN = Pattern.compile("^stor\\s*?\\[\\s*?stor\\s*?\\[\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?,\\s*?(" + NUMBER_SUBPATTERN + "\\d)\\s*?]\\s*?,\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern OTHER_OTHER_STORAGE_PATTERN = Pattern.compile("^stor\\s*?\\[\\s*?stor\\s*?\\[\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?,\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?,\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
   private static final Pattern OTHER_STORAGE_OFFSET_PATTERN = Pattern.compile("^stor\\s*?\\[\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?,\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?\\+\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
   private static final Pattern GAMEVAR_1_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
   private static final Pattern GAMEVAR_2_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?\\+\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
@@ -41,6 +41,7 @@ public class Lexer {
   private static final Pattern INLINE_3_MATCHER = Pattern.compile("^inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\[\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
 
   private static final Pattern GAMEVAR_ARRAY_3_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern GAMEVAR_ARRAY_4_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?\\s*?\\+\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
 
   private final ScriptMeta meta;
 
@@ -96,7 +97,7 @@ public class Lexer {
       }
     }
 
-    final List<Integer> tableOffsets = tables.stream().map(key -> labels.get(key) / 0x4).sorted(Comparator.reverseOrder()).toList();
+    final List<Integer> tableOffsets = tables.stream().map(key -> labels.get(key) / 0x4).distinct().sorted(Comparator.reverseOrder()).toList();
     int maxOffset = entries.size(); // Used to know when to end jump tables that run into each other
 
     // Fix jump table addresses (note: these addresses are sorted from last to first)
@@ -347,8 +348,13 @@ public class Lexer {
       return new Param(address, ParameterType.GAMEVAR_ARRAY_3, new int[] { this.packParam(ParameterType.GAMEVAR_ARRAY_3, p0, p1) }, OptionalInt.empty(), null);
     }
 
-    // GAMEVAR_ARRAY_3
-    // GAMEVAR_ARRAY_4
+    if((matcher = GAMEVAR_ARRAY_4_PATTERN.matcher(paramString)).matches()) {
+      final int p0 = this.parseInt(matcher.group(1));
+      final int p1 = this.parseInt(matcher.group(2));
+      final int p2 = this.parseInt(matcher.group(3));
+      return new Param(address, ParameterType.GAMEVAR_ARRAY_4, new int[] { this.packParam(ParameterType.GAMEVAR_ARRAY_4, p0, p1, p2) }, OptionalInt.empty(), null);
+    }
+
     // GAMEVAR_ARRAY_5
     // _12
     // INLINE_5
