@@ -69,7 +69,7 @@ public class Lexer {
       entries.add(entry);
 
       if(entry instanceof final Op op) {
-        if(op.type == OpType.GOSUB_TABLE) {
+        if(op.type == OpType.GOSUB_TABLE || op.type == OpType.JMP_TABLE) {
           tables.add(op.params[1].label);
         }
 
