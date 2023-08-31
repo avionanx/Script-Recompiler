@@ -23,9 +23,22 @@ public class Script {
     this.entries = new Entry[length];
   }
 
-  public void addLabel(final int destAddress, final String name) {
+  /** Uses an existing label if one already points to this address */
+  public String addLabel(final int destAddress, final String name) {
+    if(this.labels.containsKey(destAddress)) {
+      return this.labels.get(destAddress).get(0);
+    }
+
     this.labels.computeIfAbsent(destAddress, k -> new ArrayList<>()).add(name);
     this.labelCount++;
+    return name;
+  }
+
+  /** Forces adding a label even if another label already points to this address */
+  public String addUniqueLabel(final int destAddress, final String name) {
+    this.labels.computeIfAbsent(destAddress, k -> new ArrayList<>()).add(name);
+    this.labelCount++;
+    return name;
   }
 
   public int getLabelCount() {
