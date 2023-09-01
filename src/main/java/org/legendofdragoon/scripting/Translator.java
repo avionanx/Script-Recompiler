@@ -3,6 +3,7 @@ package org.legendofdragoon.scripting;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entry;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
+import org.legendofdragoon.scripting.tokens.LodString;
 import org.legendofdragoon.scripting.tokens.Op;
 import org.legendofdragoon.scripting.tokens.Param;
 import org.legendofdragoon.scripting.tokens.PointerTable;
@@ -16,7 +17,7 @@ public class Translator {
     final StringBuilder builder = new StringBuilder();
 
     for(int entryIndex = 0; entryIndex < script.entries.length; entryIndex++) {
-      Entry entry = script.entries[entryIndex];
+      final Entry entry = script.entries[entryIndex];
       if(script.subs.contains(entry.address)) {
         builder.append("\n; SUBROUTINE\n");
       }
@@ -54,6 +55,9 @@ public class Translator {
         }
 
         entryIndex--;
+      } else if(entry instanceof final LodString string) {
+        builder.append("%x ".formatted(entry.address)).append("data str[").append(string).append("]\n");
+        entryIndex += string.chars.length / 2;
       } else if(entry instanceof final Op op) {
         builder.append("%x ".formatted(entry.address)).append(op.type.name);
 
