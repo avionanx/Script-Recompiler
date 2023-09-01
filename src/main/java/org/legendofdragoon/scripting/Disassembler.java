@@ -7,6 +7,8 @@ import org.legendofdragoon.scripting.tokens.Param;
 import org.legendofdragoon.scripting.tokens.PointerTable;
 import org.legendofdragoon.scripting.tokens.Script;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.OptionalInt;
 import java.util.Set;
 
@@ -84,6 +86,37 @@ public class Disassembler {
         }
 
         op.params[i] = param;
+
+        // Handle jump table params
+        if(paramType.isRelativeInline()) {
+          param.resolvedValue.ifPresent(tableAddress -> {
+            if(script.entries[tableAddress / 0x4] != null) {
+              return;
+            }
+
+            final List<Integer> destinations = new ArrayList<>();
+            int entryCount = 0;
+
+            int earliestDestination = this.state.length();
+            for(int entryAddress = tableAddress; script.entries[entryAddress / 4] == null && entryAddress < earliestDestination; entryAddress += 0x4) {
+              final int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
+
+              if(earliestDestination > destination) {
+                earliestDestination = destination;
+              }
+
+              destinations.add(destination);
+              entryCount++;
+            }
+
+            final String[] labels = new String[entryCount];
+            for(int entryIndex = 0; entryIndex < entryCount; entryIndex++) {
+              labels[entryIndex] = script.addLabel(destinations.get(entryIndex), "PTR_%x_%d".formatted(tableAddress, entryIndex));
+            }
+
+            script.entries[tableAddress / 0x4] = new PointerTable(tableAddress, labels);
+          });
+        }
       }
 
       switch(op.type) {

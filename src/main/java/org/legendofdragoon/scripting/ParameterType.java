@@ -45,7 +45,13 @@ public enum ParameterType {
     this.width = width;
   }
 
+  /** table[index] */
   public boolean isInline() {
     return this == INLINE_1 || this == INLINE_2 || this == INLINE_3 || this == INLINE_4 || this == INLINE_5 || this == INLINE_6 || this == INLINE_7;
+  }
+
+  /** table[table[index]] */
+  public boolean isRelativeInline() {
+    return this == INLINE_3 || this == INLINE_4 || this == INLINE_6 || this == INLINE_7;
   }
 }

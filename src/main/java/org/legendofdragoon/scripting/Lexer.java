@@ -74,6 +74,10 @@ public class Lexer {
         }
 
         for(final Param param : op.params) {
+          if(param.type.isRelativeInline()) {
+            tables.add(param.label);
+          }
+
           for(int i = 0; i < param.type.width; i++) {
             entries.add(param);
           }
