@@ -3,7 +3,10 @@ package org.legendofdragoon.scripting.launch;
 import com.opencsv.exceptions.CsvException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 import org.apache.logging.log4j.core.config.plugins.util.PluginManager;
+import org.jetbrains.annotations.Nullable;
 import org.legendofdragoon.scripting.Compiler;
 import org.legendofdragoon.scripting.Lexer;
 import org.legendofdragoon.scripting.ScriptMeta;
@@ -15,6 +18,7 @@ import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Objects;
 
 public final class Compile {
   static {
@@ -23,23 +27,38 @@ public final class Compile {
   }
 
   private static final Logger LOGGER = LogManager.getFormatterLogger();
+  private static final Marker COMPILE_MARKER = MarkerManager.getMarker("COMPILE");
+
 
   private Compile() { }
 
-  public static void main(final String[] args) throws IOException, CsvException {
-    LOGGER.info("Compiling file %s", args[0]);
+  public static void compile(final String inFile, final @Nullable String outFile) throws IOException, CsvException {
+    LOGGER.info(COMPILE_MARKER, "Compiling file %s", inFile);
 
     final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
 
     final Compiler compiler = new Compiler();
     final Lexer lexer = new Lexer(meta);
 
-    final String input = Files.readString(Path.of(args[0]));
+    final String input = Files.readString(Path.of(inFile));
 
     final Script lexedDecompiledSource = lexer.lex(input);
     final int[] recompiledSource = compiler.compile(lexedDecompiledSource);
 
-    Files.write(Path.of("compiled"), intsToBytes(recompiledSource), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+    final Path outPath;
+    outPath = Path.of(Objects.requireNonNullElse(outFile, "compiled"));
+    try {
+      Files.createDirectories(outPath.getParent());
+    } catch (IOException e) {
+      LOGGER.error(COMPILE_MARKER, "Cannot create directories\n" + e);
+
+      return;
+    }
+    Files.write(outPath, intsToBytes(recompiledSource), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+  }
+
+  public static void main(final String[] args) throws IOException, CsvException {
+    compile(args[0], null);
   }
 
   private static byte[] intsToBytes(final int[] ints) {

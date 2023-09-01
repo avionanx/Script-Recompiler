@@ -1,5 +1,10 @@
 package org.legendofdragoon.scripting;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
+import org.apache.logging.log4j.core.config.plugins.util.PluginManager;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
 import org.legendofdragoon.scripting.tokens.Op;
@@ -20,12 +25,15 @@ public class Disassembler {
     this.meta = meta;
   }
 
-  public Script disassemble(final byte[] bytes) {
+  public Script disassemble(final byte[] bytes) throws IndexOutOfBoundsException {
     this.state = new State(bytes);
 
     final Script script = new Script(this.state.length() / 4);
 
     this.getEntrypoints(script);
+    if(script.entrypoints.size() == 0) {
+      throw new NotAScriptException();
+    }
 
     for(final int entrypoint : script.entrypoints) {
       this.probeBranch(script, entrypoint);
@@ -230,7 +238,7 @@ public class Disassembler {
     }
   }
 
-  private void getEntrypoints(final Script script) {
+  private void getEntrypoints(final Script script) throws IndexOutOfBoundsException{
     for(int i = 0; i < 0x10; i++) {
       final int entrypoint = state.currentWord();
 
