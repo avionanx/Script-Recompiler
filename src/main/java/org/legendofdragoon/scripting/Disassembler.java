@@ -175,16 +175,16 @@ public class Disassembler {
     this.state.currentOffset(oldCurrentOffset);
   }
 
-  private void handleRelativeTable(final Script script, final Set<Integer> tables, final Set<Integer> destinations, final int tableOffset) {
-    if(tables.contains(tableOffset)) {
+  private void handleRelativeTable(final Script script, final Set<Integer> tables, final Set<Integer> destinations, final int tableAddress) {
+    if(tables.contains(tableAddress)) {
       return;
     }
 
-    tables.add(tableOffset);
+    tables.add(tableAddress);
 
     int destOffset;
     int entryCount = 0;
-    while(script.entries[tableOffset / 4 + entryCount] == null && !this.isProbablyOp(tableOffset + entryCount * 0x4) && this.isValidOp(destOffset = tableOffset + this.state.wordAt(tableOffset + entryCount * 0x4) * 0x4)) {
+    while(script.entries[tableAddress / 4 + entryCount] == null && !this.isProbablyOp(tableAddress + entryCount * 0x4) && this.isValidOp(destOffset = tableAddress + this.state.wordAt(tableAddress + entryCount * 0x4) * 0x4)) {
       destinations.add(destOffset);
       this.probeBranch(script, destOffset);
       entryCount++;
@@ -192,11 +192,11 @@ public class Disassembler {
 
     final String[] labels = new String[entryCount];
     for(int i = 0; i < entryCount; i++) {
-      final int address = tableOffset + i * 0x4;
-      labels[i] = script.addLabel(tableOffset + this.state.wordAt(address) * 0x4, "JMP_%x_%d".formatted(tableOffset, i));
+      final int address = tableAddress + i * 0x4;
+      labels[i] = script.addLabel(tableAddress + this.state.wordAt(address) * 0x4, "JMP_%x_%d".formatted(tableAddress, i));
     }
 
-    script.entries[tableOffset / 0x4] = new PointerTable(tableOffset, labels);
+    script.entries[tableAddress / 0x4] = new PointerTable(tableAddress, labels);
   }
 
   private void handlePointerTable(final Script script, final Op op, final int paramIndex, final int tableAddress) {
@@ -340,7 +340,7 @@ public class Disassembler {
       return false;
     }
 
-    if(offset >= this.state.length()) {
+    if(offset < 0x4 || offset >= this.state.length()) {
       return false;
     }
 
@@ -352,7 +352,7 @@ public class Disassembler {
       return false;
     }
 
-    if(offset >= this.state.length()) {
+    if(offset < 0x4 || offset >= this.state.length()) {
       return false;
     }
 
