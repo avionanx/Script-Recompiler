@@ -1,5 +1,8 @@
 package org.legendofdragoon.scripting.tokens;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -8,6 +11,8 @@ import static org.legendofdragoon.scripting.Lexer.CONTROL_PATTERN;
 import static org.legendofdragoon.scripting.Lexer.NUMBER_PATTERN;
 
 public class LodString extends Entry {
+  private static final Logger LOGGER = LogManager.getFormatterLogger();
+
   public final int[] chars;
 
   public LodString(final int address, final int[] chars) {
@@ -23,14 +28,16 @@ public class LodString extends Entry {
       if((chr & 0xff00) != 0) {
         final CONTROLS control = CONTROLS.fromControl(chr);
 
-        out.append('<').append(control.name);
+        if(control != null) {
+          out.append('<').append(control.name);
 
-        if(control.hasParam) {
-          out.append('=').append(chr & 0xff);
+          if(control.hasParam) {
+            out.append('=').append(chr & 0xff);
+          }
+
+          out.append('>');
+          continue;
         }
-
-        out.append('>');
-        continue;
       }
 
       out.append(switch(chr) {
@@ -120,7 +127,10 @@ public class LodString extends Entry {
         case 0x53 -> '[';
         case 0x54 -> ']';
         case 0x55 -> ';';
-        default -> throw new RuntimeException("Illegal char %x".formatted(chr));
+        default -> {
+          LOGGER.warn("Found invalid character %x", chr);
+          yield "<chr=0x%x>".formatted(chr);
+        }
       });
     }
 
@@ -274,6 +284,8 @@ public class LodString extends Entry {
     SAUTO("sauto", 0xb000, true),
     ELEMENT("element", 0xb100, true),
     SBAT("sbat", 0xb200, false),
+
+    INVALID("chr", 0, true),
     ;
 
     public static CONTROLS fromControl(final int control) {
@@ -283,7 +295,7 @@ public class LodString extends Entry {
         }
       }
 
-      throw new RuntimeException("Unknown control %x".formatted(control));
+      return null;
     }
 
     public static CONTROLS fromName(final String name) {

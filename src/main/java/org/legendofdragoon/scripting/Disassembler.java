@@ -219,6 +219,15 @@ public class Disassembler {
         earliestDestination = destination;
       }
 
+      // Heuristic check: if it's a string param, check if the destination is a param. Some params can look like chars, so we only accept ones that have params.
+      if(op.type == OpType.CALL && "string".equalsIgnoreCase(this.meta.methods[op.headerParam].params[paramIndex].type)) {
+        final Op destOp = this.parseHeader(destination);
+
+        if(destOp != null && destOp.type.paramNames.length != 0) {
+          break;
+        }
+      }
+
       destinations.add(destination);
       entryCount++;
     }
