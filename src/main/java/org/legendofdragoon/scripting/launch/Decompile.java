@@ -32,19 +32,23 @@ public final class Decompile {
 
   private Decompile() { }
 
-  public static int decompile(final String inFile, final @Nullable String outFile) throws IOException, CsvException {
+  public static int decompile(final String inFile, final @Nullable String outFile, @Nullable ScriptMeta meta) throws IOException, CsvException {
     LOGGER.info(DECOMPILE_MARKER, "Decompiling file %s", inFile);
 
     final byte[] bytes = Files.readAllBytes(Paths.get(inFile));
 
-    final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
+    if(meta == null) {
+      meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
+    }
 
     final Disassembler disassembler = new Disassembler(meta);
     final Translator translator = new Translator();
 
     final Script script;
+    final String decompiledOutput;
     try {
       script = disassembler.disassemble(bytes);
+      decompiledOutput = translator.translate(script, meta);
     } catch (NotAScriptException e) {
       LOGGER.error(DECOMPILE_MARKER, "No entry points detected");
 
@@ -60,7 +64,6 @@ public final class Decompile {
 
       return 3;
     }
-    final String decompiledOutput = translator.translate(script, meta);
 
     final Path outPath;
     outPath = Path.of(Objects.requireNonNullElse(outFile, "decompiled.txt"));
@@ -77,6 +80,6 @@ public final class Decompile {
   }
 
   public static void main(final String[] args) throws IOException, CsvException {
-    decompile(args[0], null);
+    decompile(args[0], null, null);
   }
 }

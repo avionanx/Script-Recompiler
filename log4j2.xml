@@ -7,6 +7,7 @@
                 <MarkerFilter marker="ERROR" onMatch="ACCEPT" onMismatch="NEUTRAL" />
                 <MarkerFilter marker="DECOMPILE" onMatch="DENY" onMismatch="NEUTRAL" />
                 <MarkerFilter marker="COMPILE" onMatch="DENY" onMismatch="NEUTRAL" />
+                <MarkerFilter marker="DISASSEMBLE" onMatch="DENY" onMismatch="NEUTRAL" />
             </Filters>
         </Console>
         <File name="file" fileName="debug.log" immediateFlush="false" append="false">
@@ -15,6 +16,7 @@
                 <MarkerFilter marker="ERROR" onMatch="ACCEPT" onMismatch="NEUTRAL" />
                 <MarkerFilter marker="DECOMPILE" onMatch="DENY" onMismatch="NEUTRAL" />
                 <MarkerFilter marker="COMPILE" onMatch="DENY" onMismatch="NEUTRAL" />
+                <MarkerFilter marker="DISASSEMBLE" onMatch="DENY" onMismatch="NEUTRAL" />
             </Filters>
         </File>
     </Appenders>

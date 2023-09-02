@@ -21,6 +21,13 @@ public class Disassembler {
   private final ScriptMeta meta;
   private State state;
 
+  static {
+    System.setProperty("log4j.skipJansi", "false");
+  }
+
+  private static final Logger LOGGER = LogManager.getFormatterLogger();
+  private static Marker DISASSEMBLER_MARKER = MarkerManager.getMarker("DISASSEMBLE");
+
   public Disassembler(final ScriptMeta meta) {
     this.meta = meta;
   }
@@ -41,8 +48,8 @@ public class Disassembler {
 
     this.fillData(script);
 
-    System.out.println("Probing complete");
-    System.out.println();
+    LOGGER.info(DISASSEMBLER_MARKER, "Probing complete");
+    LOGGER.info(DISASSEMBLER_MARKER, "");
 
     return script;
   }
@@ -53,7 +60,7 @@ public class Disassembler {
       return;
     }
 
-    System.out.printf("Probing branch %x%n", offset);
+    LOGGER.info(DISASSEMBLER_MARKER, "Probing branch %x%n", offset);
     script.branches.add(offset);
 
     final int oldHeaderOffset = this.state.headerOffset();

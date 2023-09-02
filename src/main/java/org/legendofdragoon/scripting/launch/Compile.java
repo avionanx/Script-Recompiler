@@ -32,10 +32,12 @@ public final class Compile {
 
   private Compile() { }
 
-  public static void compile(final String inFile, final @Nullable String outFile) throws IOException, CsvException {
+  public static void compile(final String inFile, final @Nullable String outFile, @Nullable ScriptMeta meta) throws IOException, CsvException {
     LOGGER.info(COMPILE_MARKER, "Compiling file %s", inFile);
 
-    final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
+    if(meta == null) {
+      meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
+    }
 
     final Compiler compiler = new Compiler();
     final Lexer lexer = new Lexer(meta);
@@ -58,7 +60,7 @@ public final class Compile {
   }
 
   public static void main(final String[] args) throws IOException, CsvException {
-    compile(args[0], null);
+    compile(args[0], null, null);
   }
 
   private static byte[] intsToBytes(final int[] ints) {
