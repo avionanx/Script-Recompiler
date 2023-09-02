@@ -1,5 +1,7 @@
 package org.legendofdragoon.scripting;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
 import org.legendofdragoon.scripting.tokens.LodString;
@@ -14,6 +16,8 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 public class Disassembler {
+  private static final Logger LOGGER = LogManager.getFormatterLogger();
+
   private final ScriptMeta meta;
   private State state;
 
@@ -200,6 +204,11 @@ public class Disassembler {
   }
 
   private void handlePointerTable(final Script script, final Op op, final int paramIndex, final int tableAddress) {
+    if(tableAddress / 4 >= script.entries.length) {
+      LOGGER.warn("Op %s param %d points to invalid pointer table %x", op, paramIndex, tableAddress);
+      return;
+    }
+
     if(script.entries[tableAddress / 0x4] != null) {
       return;
     }
