@@ -313,6 +313,11 @@ public class Disassembler {
     }
 
     final int opParam = opcode >> 16;
+
+    if(type.headerParamName == null && opParam != 0) {
+      return null;
+    }
+
     return new Op(offset, type, opParam, paramCount);
   }
 

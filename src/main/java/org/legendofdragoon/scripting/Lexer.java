@@ -97,6 +97,10 @@ public class Lexer {
       if(entry instanceof final Op op) {
         for(final Param param : op.params) {
           if(param.label != null) {
+            if(!labels.containsKey(param.label)) {
+              throw new RuntimeException("Missing label " + param.label);
+            }
+
             final int address = labels.get(param.label);
 
             switch(param.type) {

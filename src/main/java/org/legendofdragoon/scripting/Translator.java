@@ -1,5 +1,7 @@
 package org.legendofdragoon.scripting;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entry;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
@@ -13,6 +15,8 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 public class Translator {
+  private static final Logger LOGGER = LogManager.getFormatterLogger();
+
   public String translate(final Script script, final ScriptMeta meta) {
     final StringBuilder builder = new StringBuilder();
 
@@ -50,6 +54,12 @@ public class Translator {
         }
 
         for(int i = 0; i < rel.labels.length; i++) {
+          // If this table overruns something else, bail out
+          if(i != 0 && !(script.entries[entryIndex] instanceof Data)) {
+            LOGGER.warn("Jump table overrun at %x", entry.address);
+            break;
+          }
+
           builder.append("%x ".formatted(entry.address + i * 0x4)).append("rel :").append(rel.labels[i]).append('\n');
           entryIndex++;
         }
