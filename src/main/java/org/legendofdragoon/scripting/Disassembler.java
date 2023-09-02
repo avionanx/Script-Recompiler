@@ -184,7 +184,7 @@ public class Disassembler {
 
     int destOffset;
     int entryCount = 0;
-    while(script.entries[tableOffset / 4 + entryCount] == null && this.isValidOp(destOffset = tableOffset + this.state.wordAt(tableOffset + entryCount * 0x4) * 0x4)) {
+    while(script.entries[tableOffset / 4 + entryCount] == null && !this.isProbablyOp(tableOffset + entryCount * 0x4) && this.isValidOp(destOffset = tableOffset + this.state.wordAt(tableOffset + entryCount * 0x4) * 0x4)) {
       destinations.add(destOffset);
       this.probeBranch(script, destOffset);
       entryCount++;
@@ -209,7 +209,7 @@ public class Disassembler {
 
     int earliestDestination = this.state.length();
     int latestDestination = 0;
-    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination); entryAddress += 0x4) {
+    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && !this.isProbablyOp(entryAddress) && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination); entryAddress += 0x4) {
       final int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
 
       if(destination >= this.state.length() - 0x4) {
@@ -345,6 +345,19 @@ public class Disassembler {
     }
 
     return this.parseHeader(offset) != null;
+  }
+
+  private boolean isProbablyOp(final int offset) {
+    if((offset & 0x3) != 0) {
+      return false;
+    }
+
+    if(offset >= this.state.length()) {
+      return false;
+    }
+
+    final Op op = this.parseHeader(offset);
+    return op != null && op.type.paramNames.length != 0;
   }
 
   private OptionalInt parseParamValue(final State state, final ParameterType param) {
