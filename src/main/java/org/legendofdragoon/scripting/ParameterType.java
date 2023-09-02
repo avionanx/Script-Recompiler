@@ -21,7 +21,7 @@ public enum ParameterType {
   GAMEVAR_ARRAY_5(0x11, 1),
   _12(0x12, 1),
   INLINE_5(0x13, 1),
-  INLINE_6(0x14, 2),
+  INLINE_6(0x14, 1),
   _15(0x15, 1),
   _16(0x16, 1),
   INLINE_7(0x17, 2),
