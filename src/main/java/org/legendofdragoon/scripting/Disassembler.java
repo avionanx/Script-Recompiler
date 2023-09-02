@@ -223,7 +223,8 @@ public class Disassembler {
     int entryCount = 0;
 
     int earliestDestination = this.state.length();
-    for(int entryAddress = tableAddress; script.entries[entryAddress / 4] == null && entryAddress < earliestDestination; entryAddress += 0x4) {
+    int latestDestination = 0;
+    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination); entryAddress += 0x4) {
       final int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
 
       if(destination >= this.state.length() - 0x4) {
@@ -232,6 +233,19 @@ public class Disassembler {
 
       if(earliestDestination > destination) {
         earliestDestination = destination;
+      }
+
+      if(latestDestination < destination) {
+        latestDestination = destination;
+      }
+
+      // Heuristic check: if it's a string param, check if the destination is a param. Some params can look like chars, so we only accept ones that have params.
+      if(op.type == OpType.CALL && "string".equalsIgnoreCase(this.meta.methods[op.headerParam].params[paramIndex].type)) {
+        final Op destOp = this.parseHeader(destination);
+
+        if(destOp != null && destOp.type.paramNames.length != 0) {
+          break;
+        }
       }
 
       destinations.add(destination);
@@ -353,8 +367,8 @@ public class Disassembler {
       case IMMEDIATE -> OptionalInt.of(state.currentWord());
       case NEXT_IMMEDIATE -> OptionalInt.of(state.wordAt(state.currentOffset() + 4));
       //TODO case STORAGE is this possible?
-      case INLINE_1, INLINE_2, INLINE_3 -> OptionalInt.of(state.headerOffset() + (short)state.currentWord() * 0x4);
-      case INLINE_4, INLINE_6, INLINE_7 -> OptionalInt.of(state.headerOffset() + 0x4);
+      case INLINE_1, INLINE_2, INLINE_3, INLINE_6 -> OptionalInt.of(state.headerOffset() + (short)state.currentWord() * 0x4);
+      case INLINE_4, INLINE_7 -> OptionalInt.of(state.headerOffset() + 0x4);
       case INLINE_5 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.param2()) * 4);
       default -> OptionalInt.empty();
     };

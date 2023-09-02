@@ -46,6 +46,8 @@ public class Lexer {
   public static final Pattern GAMEVAR_ARRAY_3_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
   public static final Pattern GAMEVAR_ARRAY_4_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?\\s*?\\+\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
 
+  public static final Pattern INLINE_6_PATTERN = Pattern.compile("^inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
+
   private final ScriptMeta meta;
 
   public Lexer(final ScriptMeta meta) {
@@ -104,8 +106,8 @@ public class Lexer {
             final int address = labels.get(param.label);
 
             switch(param.type) {
-              case INLINE_1, INLINE_2, INLINE_3 -> param.rawValues[0] |= (address - op.address) / 0x4 & 0xffff;
-              case INLINE_4, INLINE_5, INLINE_6, INLINE_7 -> throw new RuntimeException("Need to implement label bindings for " + param.type);
+              case INLINE_1, INLINE_2, INLINE_3, INLINE_6 -> param.rawValues[0] |= (address - op.address) / 0x4 & 0xffff;
+              case INLINE_4, INLINE_5, INLINE_7 -> throw new RuntimeException("Need to implement label bindings for " + param.type);
             }
           }
         }
@@ -378,7 +380,31 @@ public class Lexer {
     // GAMEVAR_ARRAY_5
     // _12
     // INLINE_5
-    // INLINE_6
+
+    if((matcher = INLINE_6_PATTERN.matcher(paramString)).matches()) {
+      if(!matcher.group(1).equalsIgnoreCase(matcher.group(2))) {
+        throw new RuntimeException("Invalid INLINE_6 def, addresses must match (" + matcher.group(1) + '/' + matcher.group(2) + ')');
+      }
+
+      final String val = matcher.group(1);
+
+      final int inline;
+      final String label;
+      if(LABEL_PARAM_PATTERN.matcher(val).matches()) {
+        final int p2 = this.parseInt(matcher.group(3));
+        inline = this.packParam(ParameterType.INLINE_6, 0, 0, p2);
+        label = val.substring(1);
+      } else {
+        final int value = this.parseInt(val);
+        final int p0 = (value - opAddress) / 0x4;
+        final int p2 = this.parseInt(matcher.group(3));
+        inline = this.packParam(ParameterType.INLINE_6, 0, 0, p2) | p0 & 0xffff;
+        label = null;
+      }
+
+      return new Param(address, ParameterType.INLINE_6, new int[] { inline }, OptionalInt.empty(), label);
+    }
+
     // _15
     // _16
     // INLINE_7
