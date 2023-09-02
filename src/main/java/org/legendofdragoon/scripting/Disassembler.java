@@ -211,6 +211,10 @@ public class Disassembler {
     for(int entryAddress = tableAddress; script.entries[entryAddress / 4] == null && entryAddress < earliestDestination; entryAddress += 0x4) {
       final int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
 
+      if(destination >= this.state.length() - 0x4) {
+        break;
+      }
+
       if(earliestDestination > destination) {
         earliestDestination = destination;
       }
@@ -251,7 +255,7 @@ public class Disassembler {
   private void fillString(final Script script, final int address, final int maxLength) {
     final List<Integer> chars = new ArrayList<>();
 
-    for(int i = 0; i < (maxLength != -1 ? maxLength : script.entries.length - address); i++) {
+    for(int i = 0; i < (maxLength != -1 ? maxLength : script.entries.length * 0x4 - address); i++) {
       final int chr = this.state.wordAt(address + i / 2 * 0x4) >>> i % 2 * 16 & 0xffff;
 
       // String end
