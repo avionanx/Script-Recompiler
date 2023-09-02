@@ -90,7 +90,7 @@ public class Disassembler {
         op.params[i] = param;
 
         // Handle jump table params
-        if(paramType.isRelativeInline()) {
+        if(paramType.isRelativeInline() && op.type != OpType.GOSUB_TABLE && op.type != OpType.JMP_TABLE) {
           final int finalI = i;
           param.resolvedValue.ifPresent(tableAddress -> this.handlePointerTable(script, op, finalI, tableAddress));
         }

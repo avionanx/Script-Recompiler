@@ -140,6 +140,8 @@ public class LodString extends Entry {
   public static LodString fromString(final int address, final String string) {
     final List<Integer> out = new ArrayList<>();
 
+    boolean noTerm = false;
+
     for(int i = 0; i < string.length(); i++) {
       final char chr = string.charAt(i);
 
@@ -151,6 +153,13 @@ public class LodString extends Entry {
 
         if(controlMatcher.matches()) {
           final String controlName = controlMatcher.group(1).toLowerCase();
+
+          if("noterm".equalsIgnoreCase(controlName)) {
+            noTerm = true;
+            i += 7;
+            continue;
+          }
+
           final String paramString = controlMatcher.group(2);
 
           final CONTROLS control = CONTROLS.fromName(controlName);
@@ -258,7 +267,9 @@ public class LodString extends Entry {
       });
     }
 
-    out.add(0xa0ff);
+    if(!noTerm) {
+      out.add(0xa0ff);
+    }
 
     return new LodString(address, out.stream().mapToInt(Integer::intValue).toArray());
   }

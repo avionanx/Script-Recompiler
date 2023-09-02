@@ -46,7 +46,7 @@ public class Lexer {
   public static final Pattern GAMEVAR_ARRAY_3_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
   public static final Pattern GAMEVAR_ARRAY_4_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?\\s*?\\+\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
 
-  public static final Pattern INLINE_6_PATTERN = Pattern.compile("^inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
+  public static final Pattern INLINE_6_PATTERN = Pattern.compile("^inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\[\\s*?inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
 
   private final ScriptMeta meta;
 
