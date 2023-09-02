@@ -290,7 +290,11 @@ public class LodString extends Entry {
 
     public static CONTROLS fromControl(final int control) {
       for(final CONTROLS c : CONTROLS.values()) {
-        if((c.hasParam ? (c.control & 0xff00) : c.control) == control) {
+        if(c.hasParam) {
+          if((c.control & 0xff00) == (control & 0xff00)) {
+            return c;
+          }
+        } else if(c.control == control) {
           return c;
         }
       }
