@@ -3,6 +3,7 @@ package org.legendofdragoon.scripting;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entry;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
+import org.legendofdragoon.scripting.tokens.LodString;
 import org.legendofdragoon.scripting.tokens.Op;
 import org.legendofdragoon.scripting.tokens.Param;
 import org.legendofdragoon.scripting.tokens.PointerTable;
@@ -19,6 +20,18 @@ public class Compiler {
         out[entryIndex] = this.findEntrypointAddress(script, entrypoint);
       } else if(entry instanceof final Data data) {
         out[entryIndex] = data.value;
+      } else if(entry instanceof final LodString data) {
+        for(int i = 0; i < data.chars.length; i += 2) {
+          out[entryIndex] = data.chars[i];
+
+          if(i + 1 < data.chars.length) {
+            out[entryIndex] |= data.chars[i + 1] << 16;
+          }
+
+          entryIndex++;
+        }
+
+        entryIndex--; // Loop will account for one increment
       } else if(entry instanceof final PointerTable rel) {
         for(final String label : rel.labels) {
           final int destAddress = this.findLabelAddress(script, label);

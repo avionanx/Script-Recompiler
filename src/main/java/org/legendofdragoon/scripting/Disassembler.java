@@ -7,6 +7,7 @@ import org.apache.logging.log4j.MarkerManager;
 import org.apache.logging.log4j.core.config.plugins.util.PluginManager;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
+import org.legendofdragoon.scripting.tokens.LodString;
 import org.legendofdragoon.scripting.tokens.Op;
 import org.legendofdragoon.scripting.tokens.Param;
 import org.legendofdragoon.scripting.tokens.PointerTable;
@@ -46,6 +47,7 @@ public class Disassembler {
       this.probeBranch(script, entrypoint);
     }
 
+    this.fillStrings(script);
     this.fillData(script);
 
     LOGGER.info(DISASSEMBLER_MARKER, "Probing complete");
@@ -104,33 +106,8 @@ public class Disassembler {
 
         // Handle jump table params
         if(paramType.isRelativeInline()) {
-          param.resolvedValue.ifPresent(tableAddress -> {
-            if(script.entries[tableAddress / 0x4] != null) {
-              return;
-            }
-
-            final List<Integer> destinations = new ArrayList<>();
-            int entryCount = 0;
-
-            int earliestDestination = this.state.length();
-            for(int entryAddress = tableAddress; script.entries[entryAddress / 4] == null && entryAddress < earliestDestination; entryAddress += 0x4) {
-              final int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
-
-              if(earliestDestination > destination) {
-                earliestDestination = destination;
-              }
-
-              destinations.add(destination);
-              entryCount++;
-            }
-
-            final String[] labels = new String[entryCount];
-            for(int entryIndex = 0; entryIndex < entryCount; entryIndex++) {
-              labels[entryIndex] = script.addLabel(destinations.get(entryIndex), "PTR_%x_%d".formatted(tableAddress, entryIndex));
-            }
-
-            script.entries[tableAddress / 0x4] = new PointerTable(tableAddress, labels);
-          });
+          final int finalI = i;
+          param.resolvedValue.ifPresent(tableAddress -> this.handlePointerTable(script, op, finalI, tableAddress));
         }
       }
 
@@ -139,7 +116,7 @@ public class Disassembler {
           final ScriptMeta.ScriptMethod method = this.meta.methods[op.headerParam];
 
           if(this.meta.methods[op.headerParam].params.length != op.params.length) {
-            throw new RuntimeException("CALL " + op.headerParam + " has wrong number of args! " + method.params.length + "/" + op.params.length);
+            throw new RuntimeException("CALL " + op.headerParam + " has wrong number of args! " + method.params.length + '/' + op.params.length);
           }
 
           for(int i = 0; i < op.params.length; i++) {
@@ -237,6 +214,80 @@ public class Disassembler {
     script.entries[tableOffset / 0x4] = new PointerTable(tableOffset, labels);
   }
 
+  private void handlePointerTable(final Script script, final Op op, final int paramIndex, final int tableAddress) {
+    if(script.entries[tableAddress / 0x4] != null) {
+      return;
+    }
+
+    final List<Integer> destinations = new ArrayList<>();
+    int entryCount = 0;
+
+    int earliestDestination = this.state.length();
+    for(int entryAddress = tableAddress; script.entries[entryAddress / 4] == null && entryAddress < earliestDestination; entryAddress += 0x4) {
+      final int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
+
+      if(destination >= this.state.length() - 0x4) {
+        break;
+      }
+
+      if(earliestDestination > destination) {
+        earliestDestination = destination;
+      }
+
+      destinations.add(destination);
+      entryCount++;
+    }
+
+    final String[] labels = new String[entryCount];
+    for(int entryIndex = 0; entryIndex < entryCount; entryIndex++) {
+      labels[entryIndex] = script.addLabel(destinations.get(entryIndex), "PTR_%x_%d".formatted(tableAddress, entryIndex));
+    }
+
+    script.entries[tableAddress / 0x4] = new PointerTable(tableAddress, labels);
+
+    // Add string entries if appropriate
+    if(op.type == OpType.CALL) {
+      if("string".equalsIgnoreCase(this.meta.methods[op.headerParam].params[paramIndex].type)) {
+        destinations.sort(Integer::compareTo);
+
+        for(int i = 0; i < destinations.size(); i++) {
+          if(i < destinations.size() - 1) {
+            script.strings.add(new StringInfo(destinations.get(i), destinations.get(i + 1) - destinations.get(i))); // String length is next string - this string
+          } else {
+            script.strings.add(new StringInfo(destinations.get(i), -1)); // We don't know the length
+          }
+        }
+      }
+    }
+  }
+
+  private void fillStrings(final Script script) {
+    for(final StringInfo string : script.strings) {
+      this.fillString(script, string.start, string.maxLength);
+    }
+  }
+
+  private void fillString(final Script script, final int address, final int maxLength) {
+    final List<Integer> chars = new ArrayList<>();
+
+    for(int i = 0; i < (maxLength != -1 ? maxLength : script.entries.length * 0x4 - address); i++) {
+      final int chr = this.state.wordAt(address + i / 2 * 0x4) >>> i % 2 * 16 & 0xffff;
+
+      // String end
+      if(chr == 0xa0ff) {
+        break;
+      }
+
+      chars.add(chr);
+    }
+
+    final LodString string = new LodString(address, chars.stream().mapToInt(Integer::intValue).toArray());
+
+    for(int i = 0; i < string.chars.length / 2; i++) {
+      script.entries[address / 0x4 + i] = string;
+    }
+  }
+
   private void fillData(final Script script) {
     for(int i = 0; i < script.entries.length; i++) {
       if(script.entries[i] == null) {
@@ -247,7 +298,7 @@ public class Disassembler {
 
   private void getEntrypoints(final Script script) throws IndexOutOfBoundsException{
     for(int i = 0; i < 0x10; i++) {
-      final int entrypoint = state.currentWord();
+      final int entrypoint = this.state.currentWord();
 
       if(!this.isValidOp(entrypoint)) {
         break;
@@ -289,11 +340,7 @@ public class Disassembler {
       return false;
     }
 
-    if(this.parseHeader(offset) == null) {
-      return false;
-    }
-
-    return true;
+    return this.parseHeader(offset) != null;
   }
 
   private OptionalInt parseParamValue(final State state, final ParameterType param) {
