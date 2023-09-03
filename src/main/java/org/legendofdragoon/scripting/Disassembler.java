@@ -19,6 +19,8 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 public class Disassembler {
+  private static final Logger LOGGER = LogManager.getFormatterLogger();
+
   private final ScriptMeta meta;
   private State state;
 
@@ -105,7 +107,7 @@ public class Disassembler {
         op.params[i] = param;
 
         // Handle jump table params
-        if(paramType.isRelativeInline()) {
+        if(paramType.isRelativeInline() && op.type != OpType.GOSUB_TABLE && op.type != OpType.JMP_TABLE) {
           final int finalI = i;
           param.resolvedValue.ifPresent(tableAddress -> this.handlePointerTable(script, op, finalI, tableAddress));
         }
@@ -215,6 +217,11 @@ public class Disassembler {
   }
 
   private void handlePointerTable(final Script script, final Op op, final int paramIndex, final int tableAddress) {
+    if(tableAddress / 4 >= script.entries.length) {
+      LOGGER.warn("Op %s param %d points to invalid pointer table %x", op, paramIndex, tableAddress);
+      return;
+    }
+
     if(script.entries[tableAddress / 0x4] != null) {
       return;
     }

@@ -12,6 +12,9 @@ import org.legendofdragoon.scripting.tokens.PointerTable;
 import org.legendofdragoon.scripting.tokens.Script;
 
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class Translator {
@@ -66,7 +69,34 @@ public class Translator {
 
         entryIndex--;
       } else if(entry instanceof final LodString string) {
-        builder.append("%x ".formatted(entry.address)).append("data str[").append(string).append("]\n");
+        final List<Map.Entry<Integer, List<String>>> overlappingLabels = script.labels.entrySet().stream().filter(e -> e.getKey() > string.address && e.getKey() < string.address + string.chars.length / 0x2).sorted(Comparator.comparingInt(Map.Entry::getKey)).toList();
+
+        builder.append("%x ".formatted(entry.address)).append("data str[");
+
+        if(overlappingLabels.isEmpty()) {
+          builder.append(string);
+        } else {
+          // An unholy algorithm to split strings based on intersecting labels, since that's apparently a thing they did
+
+          int currentIndex = 0;
+          for(final Map.Entry<Integer, List<String>> overlappingLabel : overlappingLabels) {
+            final int nextLabelIndex = (overlappingLabel.getKey() - string.address) / 0x2;
+
+            builder.append(new LodString(0, Arrays.copyOfRange(string.chars, currentIndex, nextLabelIndex))).append("<noterm>]\n");
+
+            for(final String label : overlappingLabel.getValue()) {
+              builder.append(label).append(":\n");
+            }
+
+            builder.append("%x ".formatted(overlappingLabel.getKey())).append("data str[");
+
+            currentIndex = nextLabelIndex;
+          }
+
+          builder.append(new LodString(string.address + currentIndex * 0x2, Arrays.copyOfRange(string.chars, currentIndex, string.chars.length)));
+        }
+
+        builder.append("]\n");
         entryIndex += string.chars.length / 2;
       } else if(entry instanceof final Op op) {
         builder.append("%x ".formatted(entry.address)).append(op.type.name);
@@ -156,7 +186,7 @@ public class Translator {
       case GAMEVAR_ARRAY_5 -> "var[%d + %d][stor[%d]]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff, param.rawValues[0] >> 16 & 0xff);
       case _12 -> throw new RuntimeException("Param type 0x12 not yet supported");
       case INLINE_5 -> "inl[0x%x]".formatted(op.address + ((short)param.rawValues[0] + param.rawValues[0] >> 16 & 0xff) * 4);
-      case INLINE_6 -> "inl[0x%1$x + inl[0x%1$x + 0x%2$x]]".formatted(op.address + (short)param.rawValues[0] * 4, (param.rawValues[0] >> 16 & 0xff) * 4);
+      case INLINE_6 -> "inl[0x%1$x[inl[0x%1$x + 0x%2$x]]]".formatted(op.address + (short)param.rawValues[0] * 4, (param.rawValues[0] >> 16 & 0xff) * 4);
       case _15 -> throw new RuntimeException("Param type 0x15 not yet supported");
       case _16 -> throw new RuntimeException("Param type 0x16 not yet supported");
       case INLINE_7 -> "inl[0x%1$x[0x%1$x[%2$d] + %3$d]]".formatted(op.address, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
