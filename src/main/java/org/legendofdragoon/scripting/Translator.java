@@ -37,10 +37,6 @@ public class Translator {
         builder.append("\n; FORK RE-ENTRY\n");
       }
 
-      if(script.jumpTables.contains(entry.address)) {
-        builder.append("\n; JUMP TABLE\n");
-      }
-
       if(script.labels.containsKey(entry.address)) {
         for(final String label : script.labels.get(entry.address)) {
           builder.append(label).append(":\n");

@@ -16,7 +16,6 @@ public class Script {
   public final Set<Integer> subs = new HashSet<>();
   public final Set<Integer> subTables = new HashSet<>();
   public final Set<Integer> reentries = new HashSet<>();
-  public final Set<Integer> jumpTables = new HashSet<>();
   public final Set<Integer> jumpTableDests = new HashSet<>();
   public final Set<StringInfo> strings = new HashSet<>();
   public final Map<Integer, List<String>> labels = new HashMap<>();

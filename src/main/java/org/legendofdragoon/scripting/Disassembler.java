@@ -149,7 +149,7 @@ public class Disassembler {
         }
 
         case JMP_TABLE -> {
-          op.params[1].resolvedValue.ifPresentOrElse(tableOffset -> this.handleRelativeTable(script, script.jumpTables, script.jumpTableDests, tableOffset), () -> System.out.printf("Skipping JMP_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
+          op.params[1].resolvedValue.ifPresentOrElse(tableOffset -> this.handleRelativeTable(script, script.subTables, script.jumpTableDests, tableOffset), () -> System.out.printf("Skipping JMP_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
 
           if(op.params[1].resolvedValue.isPresent()) {
             break outer;
@@ -376,10 +376,11 @@ public class Disassembler {
       case IMMEDIATE -> OptionalInt.of(state.currentWord());
       case NEXT_IMMEDIATE -> OptionalInt.of(state.wordAt(state.currentOffset() + 4));
       //TODO case STORAGE is this possible?
-      case INLINE_1, INLINE_2, INLINE_6 -> OptionalInt.of(state.headerOffset() + (short)state.currentWord() * 0x4);
+      case INLINE_1, INLINE_2 -> OptionalInt.of(state.headerOffset() + (short)state.currentWord() * 0x4);
       case INLINE_3 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.wordAt(state.headerOffset() + (short)state.currentWord() * 0x4)) * 0x4);
       case INLINE_4, INLINE_7 -> OptionalInt.of(state.headerOffset() + 0x4);
       case INLINE_5 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.param2()) * 4);
+      case INLINE_6 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.wordAt(state.headerOffset() + ((short)state.currentWord() + state.param2()) * 0x4)) * 0x4);
       default -> OptionalInt.empty();
     };
 
