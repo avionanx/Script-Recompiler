@@ -36,6 +36,8 @@ public class Disassembler {
       this.probeBranch(script, entrypoint);
     }
 
+    this.probeBranch(script, 0x26c);
+
     this.fillStrings(script);
     this.fillData(script);
 
@@ -374,7 +376,8 @@ public class Disassembler {
       case IMMEDIATE -> OptionalInt.of(state.currentWord());
       case NEXT_IMMEDIATE -> OptionalInt.of(state.wordAt(state.currentOffset() + 4));
       //TODO case STORAGE is this possible?
-      case INLINE_1, INLINE_2, INLINE_3, INLINE_6 -> OptionalInt.of(state.headerOffset() + (short)state.currentWord() * 0x4);
+      case INLINE_1, INLINE_2, INLINE_6 -> OptionalInt.of(state.headerOffset() + (short)state.currentWord() * 0x4);
+      case INLINE_3 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.wordAt(state.headerOffset() + (short)state.currentWord() * 0x4)) * 0x4);
       case INLINE_4, INLINE_7 -> OptionalInt.of(state.headerOffset() + 0x4);
       case INLINE_5 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.param2()) * 4);
       default -> OptionalInt.empty();
