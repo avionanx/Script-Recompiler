@@ -28,7 +28,8 @@ public final class Decompile {
   public static void main(final String[] args) throws IOException, CsvException {
     LOGGER.info("Decompiling file %s", args[0]);
 
-    final byte[] bytes = Files.readAllBytes(Paths.get(args[0]));
+    final Path inputFile = Paths.get(args[0]);
+    final byte[] bytes = Files.readAllBytes(inputFile);
 
     final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
 
@@ -38,6 +39,6 @@ public final class Decompile {
     final Script script = disassembler.disassemble(bytes);
     final String decompiledOutput = translator.translate(script, meta);
 
-    Files.writeString(Path.of("decompiled.txt"), decompiledOutput, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+    Files.writeString(Paths.get(inputFile.getFileName() + ".txt"), decompiledOutput, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
   }
 }

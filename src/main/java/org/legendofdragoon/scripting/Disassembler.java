@@ -11,9 +11,13 @@ import org.legendofdragoon.scripting.tokens.PointerTable;
 import org.legendofdragoon.scripting.tokens.Script;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class Disassembler {
   private static final Logger LOGGER = LogManager.getFormatterLogger();
@@ -96,9 +100,23 @@ public class Disassembler {
         op.params[i] = param;
 
         // Handle jump table params
-        if(paramType.isRelativeInline() && op.type != OpType.GOSUB_TABLE && op.type != OpType.JMP_TABLE) {
-          final int finalI = i;
-          param.resolvedValue.ifPresent(tableAddress -> this.handlePointerTable(script, op, finalI, tableAddress));
+        if(paramType.isInlineTable() && op.type != OpType.GOSUB_TABLE && op.type != OpType.JMP_TABLE) {
+          if(op.type == OpType.CALL && !this.meta.methods[op.headerParam].params[i].branch.isEmpty()) {
+            final Set<Integer> tableDestinations = switch(this.meta.methods[op.headerParam].params[i].branch.toLowerCase()) {
+              case "jump" -> script.jumpTableDests;
+              case "subroutine" -> script.subs;
+              case "reentry" -> script.reentries;
+              default -> {
+                LOGGER.warn("Unknown branch type %s", this.meta.methods[op.headerParam].params[i].branch);
+                yield new HashSet<>();
+              }
+            };
+
+            param.resolvedValue.ifPresent(tableAddress -> this.probeTableOfBranches(script, tableDestinations, tableAddress));
+          } else {
+            final int finalI = i;
+            param.resolvedValue.ifPresent(tableAddress -> this.handlePointerTable(script, op, finalI, tableAddress));
+          }
         }
       }
 
@@ -143,23 +161,35 @@ public class Disassembler {
             System.out.printf("Skipping %s at %x due to unknowable parameter%n", op.type, this.state.headerOffset())
           );
 
-          if(op.params[op.params.length - 1].resolvedValue.isPresent()) {
-            break outer;
-          }
+          // Jumps are terminal
+          break outer;
         }
 
         case JMP_TABLE -> {
-          op.params[1].resolvedValue.ifPresentOrElse(tableOffset -> this.handleRelativeTable(script, script.subTables, script.jumpTableDests, tableOffset), () -> System.out.printf("Skipping JMP_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
+          op.params[1].resolvedValue.ifPresentOrElse(tableOffset -> {
+            if(op.params[1].type.isInlineTable()) {
+              this.probeTableOfTables(script, script.jumpTableDests, tableOffset);
+            } else {
+              this.probeTableOfBranches(script, script.jumpTableDests, tableOffset);
+            }
+          }, () -> System.out.printf("Skipping JMP_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
 
-          if(op.params[1].resolvedValue.isPresent()) {
-            break outer;
-          }
+          // Jumps are terminal
+          break outer;
         }
 
         case GOSUB -> op.params[0].resolvedValue.ifPresentOrElse(offset1 -> {
           script.subs.add(offset1);
           this.probeBranch(script, offset1);
         }, () -> System.out.printf("Skipping GOSUB at %x due to unknowable parameter%n", this.state.headerOffset()));
+
+        case GOSUB_TABLE -> op.params[1].resolvedValue.ifPresentOrElse(tableOffset -> {
+          if(op.params[1].type.isInlineTable()) {
+            this.probeTableOfTables(script, script.subs, tableOffset);
+          } else {
+            this.probeTableOfBranches(script, script.subs, tableOffset);
+          }
+        }, () -> System.out.printf("Skipping GOSUB_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
 
         case REWIND, RETURN, DEALLOCATE, DEALLOCATE82, CONSUME -> {
           break outer;
@@ -172,8 +202,6 @@ public class Disassembler {
           script.reentries.add(offset1);
           this.probeBranch(script, offset1);
         }, () -> System.out.printf("Skipping FORK at %x due to unknowable parameter%n", this.state.headerOffset()));
-
-        case GOSUB_TABLE -> op.params[1].resolvedValue.ifPresentOrElse(tableOffset -> this.handleRelativeTable(script, script.subTables, script.subs, tableOffset), () -> System.out.printf("Skipping GOSUB_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
       }
     }
 
@@ -181,28 +209,53 @@ public class Disassembler {
     this.state.currentOffset(oldCurrentOffset);
   }
 
-  private void handleRelativeTable(final Script script, final Set<Integer> tables, final Set<Integer> destinations, final int tableAddress) {
+  private void probeTableOfTables(final Script script, final Set<Integer> tableDestinations, final int tableAddress) {
+    this.probeTable(script, script.subTables, tableDestinations, tableAddress, subtableAddress -> !this.isProbablyOp(subtableAddress), subtableAddress -> this.probeTableOfBranches(script, tableDestinations, subtableAddress));
+  }
+
+  private void probeTableOfBranches(final Script script, final Set<Integer> tableDestinations, final int subtableAddress) {
+    this.probeTable(script, script.subTables, tableDestinations, subtableAddress, this::isValidOp, branchAddress -> this.probeBranch(script, branchAddress));
+  }
+
+  private void probeTable(final Script script, final Set<Integer> tables, final Set<Integer> tableDestinations, final int tableAddress, final Predicate<Integer> destinationAddressHeuristic, final Consumer<Integer> visitor) {
     if(tables.contains(tableAddress)) {
       return;
     }
 
     tables.add(tableAddress);
 
-    int destOffset;
-    int entryCount = 0;
-    while(script.entries[tableAddress / 4 + entryCount] == null && !this.isProbablyOp(tableAddress + entryCount * 0x4) && this.isValidOp(destOffset = tableAddress + this.state.wordAt(tableAddress + entryCount * 0x4) * 0x4)) {
-      destinations.add(destOffset);
-      this.probeBranch(script, destOffset);
-      entryCount++;
+    int earliestDestination = this.state.length();
+    int latestDestination = 0;
+    final List<Integer> destinations = new ArrayList<>();
+    final List<String> labels = new ArrayList<>();
+    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination) && (!this.isProbablyOp(entryAddress) || this.isValidOp(tableAddress + this.state.wordAt(entryAddress) * 0x4)); entryAddress += 0x4) {
+      final int destAddress = tableAddress + this.state.wordAt(entryAddress) * 0x4;
+
+      if(destAddress < 0x4 || destAddress >= this.state.length() - 0x4) {
+        break;
+      }
+
+      if(!destinationAddressHeuristic.test(destAddress)) {
+        break;
+      }
+
+      if(earliestDestination > destAddress) {
+        earliestDestination = destAddress;
+      }
+
+      if(latestDestination < destAddress) {
+        latestDestination = destAddress;
+      }
+
+      tableDestinations.add(destAddress);
+      destinations.add(destAddress);
+      labels.add(script.addLabel(destAddress, "JMP_%x_%d".formatted(tableAddress, labels.size())));
     }
 
-    final String[] labels = new String[entryCount];
-    for(int i = 0; i < entryCount; i++) {
-      final int address = tableAddress + i * 0x4;
-      labels[i] = script.addLabel(tableAddress + this.state.wordAt(address) * 0x4, "JMP_%x_%d".formatted(tableAddress, i));
-    }
+    script.entries[tableAddress / 0x4] = new PointerTable(tableAddress, labels.toArray(String[]::new));
 
-    script.entries[tableAddress / 0x4] = new PointerTable(tableAddress, labels);
+    // Visit tables in reverse order so that it's easier to determine where tables end
+    destinations.stream().distinct().sorted(Comparator.reverseOrder()).forEach(visitor);
   }
 
   private void handlePointerTable(final Script script, final Op op, final int paramIndex, final int tableAddress) {
@@ -221,7 +274,7 @@ public class Disassembler {
     int earliestDestination = this.state.length();
     int latestDestination = 0;
     for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && !this.isProbablyOp(entryAddress) && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination); entryAddress += 0x4) {
-      final int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
+      int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
 
       if(destination >= this.state.length() - 0x4) {
         break;
@@ -242,6 +295,10 @@ public class Disassembler {
         if(destOp != null && destOp.type.paramNames.length != 0) {
           break;
         }
+      }
+
+      if(op.type == OpType.GOSUB_TABLE || op.type == OpType.JMP_TABLE) {
+        destination = tableAddress + this.state.wordAt(destination) * 0x4;
       }
 
       destinations.add(destination);
@@ -376,11 +433,11 @@ public class Disassembler {
       case IMMEDIATE -> OptionalInt.of(state.currentWord());
       case NEXT_IMMEDIATE -> OptionalInt.of(state.wordAt(state.currentOffset() + 4));
       //TODO case STORAGE is this possible?
-      case INLINE_1, INLINE_2 -> OptionalInt.of(state.headerOffset() + (short)state.currentWord() * 0x4);
-      case INLINE_3 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.wordAt(state.headerOffset() + (short)state.currentWord() * 0x4)) * 0x4);
-      case INLINE_4, INLINE_7 -> OptionalInt.of(state.headerOffset() + 0x4);
-      case INLINE_5 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.param2()) * 4);
-      case INLINE_6 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.wordAt(state.headerOffset() + ((short)state.currentWord() + state.param2()) * 0x4)) * 0x4);
+      case INLINE_1, INLINE_2, INLINE_TABLE_1, INLINE_TABLE_3 -> OptionalInt.of(state.headerOffset() + (short)state.currentWord() * 0x4);
+//      case INLINE_TABLE_1 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.wordAt(state.headerOffset() + (short)state.currentWord() * 0x4)) * 0x4);
+      case INLINE_TABLE_2, INLINE_TABLE_4 -> OptionalInt.of(state.headerOffset() + 0x4);
+      case INLINE_3 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.param2()) * 4);
+//      case INLINE_TABLE_3 -> OptionalInt.of(state.headerOffset() + ((short)state.currentWord() + state.wordAt(state.headerOffset() + ((short)state.currentWord() + state.param2()) * 0x4)) * 0x4);
       default -> OptionalInt.empty();
     };
 

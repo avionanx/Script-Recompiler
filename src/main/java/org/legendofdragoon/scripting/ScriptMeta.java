@@ -10,15 +10,19 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ScriptMeta {
   public final ScriptMethod[] methods;
+  public final Map<String, String[]> enums = new HashMap<>();
 
   public ScriptMeta(final String baseUrl) throws IOException, CsvException {
-    final List<String[]> descriptionsCsv = loadCsvUrl(new URL(baseUrl + "/descriptions.csv"));
-    final List<String[]> paramsCsv = loadCsvUrl(new URL(baseUrl + "/params.csv"));
+    final List<String[]> descriptionsCsv = this.loadCsvUrl(new URL(baseUrl + "/descriptions.csv"));
+    final List<String[]> paramsCsv = this.loadCsvUrl(new URL(baseUrl + "/params.csv"));
+    final List<String[]> enumsCsv = this.loadCsvUrl(new URL(baseUrl + "/enums.csv"));
 
     final List<ScriptMethod> methods = new ArrayList<>();
     for(final String[] description : descriptionsCsv) {
@@ -34,14 +38,20 @@ public class ScriptMeta {
     }
 
     this.methods = methods.toArray(ScriptMethod[]::new);
+
+    for(final String[] val : enumsCsv) {
+      final String className = val[0];
+      final String[] values = this.loadCsvUrl(new URL(baseUrl + '/' + className + ".csv")).stream().map(v -> v[0]).toArray(String[]::new);
+      this.enums.put(className, values);
+    }
   }
 
   private List<String[]> loadCsvUrl(final URL url) throws IOException, CsvException {
-    HttpURLConnection con = (HttpURLConnection)url.openConnection();
+    final HttpURLConnection con = (HttpURLConnection)url.openConnection();
     con.setRequestMethod("GET");
 
     if(con.getResponseCode() != 200) {
-      throw new RuntimeException("Failed to download meta: " + con.getResponseCode() + " - " + con.getResponseMessage());
+      throw new RuntimeException("Failed to download meta " + url + ": " + con.getResponseCode() + " - " + con.getResponseMessage());
     }
 
     final List<String[]> csv = this.loadCsv(con.getInputStream());

@@ -33,6 +33,10 @@ public class Compiler {
 
         entryIndex--; // Loop will account for one increment
       } else if(entry instanceof final PointerTable rel) {
+        if(rel.labels.length == 0) {
+          throw new RuntimeException("Empty pointer table at 0x%x".formatted(rel.address));
+        }
+
         for(final String label : rel.labels) {
           final int destAddress = this.findLabelAddress(script, label);
           out[entryIndex++] = (destAddress - rel.address) / 0x4;

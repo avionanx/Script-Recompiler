@@ -100,7 +100,7 @@ public class Translator {
         if(op.type == OpType.CALL) {
           builder.append(' ').append(meta.methods[op.headerParam].name);
         } else if(op.type.headerParamName != null) {
-          builder.append(" 0x%x".formatted(op.headerParam));
+          builder.append(' ').append(this.buildHeaderParam(op));
         }
 
         if(op.type == OpType.WAIT_CMP_0 || op.type == OpType.JMP_CMP_0) {
@@ -116,7 +116,7 @@ public class Translator {
             builder.append(',');
           }
 
-          builder.append(' ').append(this.buildParam(op, op.params[paramIndex]));
+          builder.append(' ').append(this.buildParam(meta, op, op.params[paramIndex], paramIndex));
         }
 
         if(op.type == OpType.CALL && meta.methods[op.headerParam].params.length != 0) {
@@ -144,26 +144,44 @@ public class Translator {
     return builder.toString();
   }
 
-  private String buildParam(final Op op, final Param param) {
+  private String buildHeaderParam(final Op op) {
+    if(op.type == OpType.WAIT_CMP || op.type == OpType.WAIT_CMP_0 || op.type == OpType.JMP_CMP || op.type == OpType.JMP_CMP_0) {
+      return switch(op.headerParam) {
+        case 0 -> "<=";
+        case 1 -> "<";
+        case 2 -> "==";
+        case 3 -> "!=";
+        case 4 -> ">";
+        case 5 -> ">=";
+        case 6 -> "&";
+        case 7 -> "!&";
+        default -> "Unknown CMP operator " + op.headerParam;
+      };
+    }
+
+    return "0x%x".formatted(op.headerParam);
+  }
+
+  private String buildParam(final ScriptMeta meta, final Op op, final Param param, final int paramIndex) {
     if(param.label != null) {
       final String label = ':' + param.label;
 
       return switch(param.type) {
         case INLINE_2 -> "inl[%s[stor[%d]]]".formatted(label, param.rawValues[0] >> 16 & 0xff);
-        case INLINE_3 -> "inl[%1$s[%1$s[stor[%2$d]]]]".formatted(label, param.rawValues[0] >> 16 & 0xff);
-        case INLINE_4 -> "inl[%1$s[%1$s[stor[%2$d]] + stor[%3$d]]]".formatted(label, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
-        case INLINE_6 -> "inl[%1$s + inl[%1$s + 0x%2$x]]".formatted(label, param.rawValues[0] >> 16 & 0xff);
+        case INLINE_TABLE_1 -> "inl[%1$s[%1$s[stor[%2$d]]]]".formatted(label, param.rawValues[0] >> 16 & 0xff);
+        case INLINE_TABLE_2 -> "inl[%1$s[%1$s[stor[%2$d]] + stor[%3$d]]]".formatted(label, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
+        case INLINE_TABLE_3 -> "inl[%1$s + inl[%1$s + 0x%2$x]]".formatted(label, param.rawValues[0] >> 16 & 0xff);
         case _12 -> throw new RuntimeException("Param type 0x12 not yet supported");
         case _15 -> throw new RuntimeException("Param type 0x15 not yet supported");
         case _16 -> throw new RuntimeException("Param type 0x16 not yet supported");
-        case INLINE_7 -> "inl[%1$s[%1$s[%2$d] + %3$d]]".formatted(label, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
+        case INLINE_TABLE_4 -> "inl[%1$s[%1$s[%2$d] + %3$d]]".formatted(label, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
         default -> "inl[:" + param.label + ']';
       };
     }
 
     return switch(param.type) {
-      case IMMEDIATE -> "0x%x".formatted(param.rawValues[0]);
-      case NEXT_IMMEDIATE -> "0x%x".formatted(param.rawValues[1]);
+      case IMMEDIATE -> this.getImmediateParam(meta, op, paramIndex, param.rawValues[0]);
+      case NEXT_IMMEDIATE -> this.getImmediateParam(meta, op, paramIndex, param.rawValues[1]);
       case STORAGE -> "stor[%d]".formatted(param.rawValues[0] & 0xff);
       case OTHER_OTHER_STORAGE -> "stor[stor[stor[%d], %d], %d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff, param.rawValues[0] >> 16 & 0xff);
       case OTHER_STORAGE_OFFSET -> "stor[stor[%d], %d + stor[%d]]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff, param.rawValues[0] >> 16 & 0xff);
@@ -173,19 +191,27 @@ public class Translator {
       case GAMEVAR_ARRAY_2 -> "var[%d + stor[%d]][stor[%d]]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff, param.rawValues[0] >> 16 & 0xff);
       case INLINE_1 -> "inl[0x%x]".formatted(op.address + (short)param.rawValues[0] * 4);
       case INLINE_2 -> "inl[0x%x[stor[%d]]]".formatted(op.address + (short)param.rawValues[0] * 4, param.rawValues[0] >> 16 & 0xff);
-      case INLINE_3 -> "inl[0x%1$x[0x%1$x[stor[%2$d]]]]".formatted(op.address + (short)param.rawValues[0] * 4, param.rawValues[0] >> 16 & 0xff);
-      case INLINE_4 -> "inl[0x%1$x[0x%1$x[stor[%2$d]] + stor[%3$d]]]".formatted(op.address, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
+      case INLINE_TABLE_1 -> "inl[0x%1$x[0x%1$x[stor[%2$d]]]]".formatted(op.address + (short)param.rawValues[0] * 4, param.rawValues[0] >> 16 & 0xff);
+      case INLINE_TABLE_2 -> "inl[0x%1$x[0x%1$x[stor[%2$d]] + stor[%3$d]]]".formatted(op.address, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
       case OTHER_STORAGE -> "stor[stor[%d], %d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff + param.rawValues[0] >> 16 & 0xff);
       case GAMEVAR_3 -> "var[%d + %d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff);
       case GAMEVAR_ARRAY_3 -> "var[%d][%d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff);
       case GAMEVAR_ARRAY_4 -> "var[%d + stor[%d]][%d]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff, param.rawValues[0] >> 16 & 0xff);
       case GAMEVAR_ARRAY_5 -> "var[%d + %d][stor[%d]]".formatted(param.rawValues[0] & 0xff, param.rawValues[0] >> 8 & 0xff, param.rawValues[0] >> 16 & 0xff);
       case _12 -> throw new RuntimeException("Param type 0x12 not yet supported");
-      case INLINE_5 -> "inl[0x%x]".formatted(op.address + ((short)param.rawValues[0] + param.rawValues[0] >> 16 & 0xff) * 4);
-      case INLINE_6 -> "inl[0x%1$x[inl[0x%1$x + 0x%2$x]]]".formatted(op.address + (short)param.rawValues[0] * 4, (param.rawValues[0] >> 16 & 0xff) * 4);
+      case INLINE_3 -> "inl[0x%x]".formatted(op.address + ((short)param.rawValues[0] + param.rawValues[0] >> 16 & 0xff) * 4);
+      case INLINE_TABLE_3 -> "inl[0x%1$x[inl[0x%1$x + 0x%2$x]]]".formatted(op.address + (short)param.rawValues[0] * 4, (param.rawValues[0] >> 16 & 0xff) * 4);
       case _15 -> throw new RuntimeException("Param type 0x15 not yet supported");
       case _16 -> throw new RuntimeException("Param type 0x16 not yet supported");
-      case INLINE_7 -> "inl[0x%1$x[0x%1$x[%2$d] + %3$d]]".formatted(op.address, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
+      case INLINE_TABLE_4 -> "inl[0x%1$x[0x%1$x[%2$d] + %3$d]]".formatted(op.address, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
     };
+  }
+
+  private String getImmediateParam(final ScriptMeta meta, final Op op, final int paramIndex, final int value) {
+    if(op.type == OpType.CALL && meta.enums.containsKey(meta.methods[op.headerParam].params[paramIndex].type)) {
+      return meta.enums.get(meta.methods[op.headerParam].params[paramIndex].type)[value];
+    }
+
+    return "0x%x".formatted(value);
   }
 }
