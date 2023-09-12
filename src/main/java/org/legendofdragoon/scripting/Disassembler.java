@@ -277,8 +277,34 @@ public class Disassembler {
 
     int earliestDestination = this.state.length();
     int latestDestination = 0;
-    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && !this.isProbablyOp(entryAddress) && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination); entryAddress += 0x4) {
+    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination); entryAddress += 0x4) {
       int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
+
+      if(op.type == OpType.CALL && "string".equalsIgnoreCase(this.meta.methods[op.headerParam].params[paramIndex].type)) {
+        if(this.isProbablyOp(entryAddress)) {
+          boolean foundTerminator = false;
+
+          // Look for a string terminator at the destination
+          for(int i = destination / 4; i < destination / 4 + 300; i++) {
+            // We ran into another entry or the end of the script
+            if(i >= script.entries.length || script.entries[i] != null) {
+              break;
+            }
+
+            final int word = this.state.wordAt(i * 0x4);
+            if((word & 0xffff) == 0xa0ff || (word >> 16 & 0xffff) == 0xa0ff) {
+              foundTerminator = true;
+              break;
+            }
+          }
+
+          if(!foundTerminator) {
+            break;
+          }
+        }
+      } else if(this.isProbablyOp(entryAddress)) {
+        break;
+      }
 
       if(destination >= this.state.length() - 0x4) {
         break;
@@ -290,15 +316,6 @@ public class Disassembler {
 
       if(latestDestination < destination) {
         latestDestination = destination;
-      }
-
-      // Heuristic check: if it's a string param, check if the destination is a param. Some params can look like chars, so we only accept ones that have params.
-      if(op.type == OpType.CALL && "string".equalsIgnoreCase(this.meta.methods[op.headerParam].params[paramIndex].type)) {
-        final Op destOp = this.parseHeader(destination);
-
-        if(destOp != null && destOp.type.paramNames.length != 0) {
-          break;
-        }
       }
 
       if(op.type == OpType.GOSUB_TABLE || op.type == OpType.JMP_TABLE) {
@@ -419,17 +436,34 @@ public class Disassembler {
     return this.parseHeader(offset) != null;
   }
 
-  private boolean isProbablyOp(final int offset) {
-    if((offset & 0x3) != 0) {
+  private boolean isProbablyOp(final int address) {
+    if((address & 0x3) != 0) {
       return false;
     }
 
-    if(offset < 0x4 || offset >= this.state.length()) {
+    if(address < 0x4 || address >= this.state.length()) {
       return false;
     }
 
-    final Op op = this.parseHeader(offset);
-    return op != null && op.type.paramNames.length != 0;
+    final Op op = this.parseHeader(address);
+
+    if(op == null || op.type.paramNames.length == 0) {
+      return false;
+    }
+
+    // If we read valid params that aren't immediates, it's probably an op
+    int paramAddress = address + 0x4;
+    for(int i = 0; i < op.type.paramNames.length; i++) {
+      final ParameterType parameterType = ParameterType.byOpcode(this.state.wordAt(paramAddress));
+
+      if(parameterType != ParameterType.IMMEDIATE) {
+        return true;
+      }
+
+      paramAddress += parameterType.width * 0x4;
+    }
+
+    return false;
   }
 
   private OptionalInt parseParamValue(final State state, final ParameterType param) {
