@@ -101,7 +101,7 @@ public class Disassembler {
 
         // Handle jump table params
         if(paramType.isInlineTable() && op.type != OpType.GOSUB_TABLE && op.type != OpType.JMP_TABLE) {
-          if(op.type == OpType.CALL && !this.meta.methods[op.headerParam].params[i].branch.isEmpty()) {
+          if(op.type == OpType.CALL && !"none".equalsIgnoreCase(this.meta.methods[op.headerParam].params[i].branch)) {
             final Set<Integer> tableDestinations = switch(this.meta.methods[op.headerParam].params[i].branch.toLowerCase()) {
               case "jump" -> script.jumpTableDests;
               case "subroutine" -> script.subs;
@@ -250,6 +250,10 @@ public class Disassembler {
       tableDestinations.add(destAddress);
       destinations.add(destAddress);
       labels.add(script.addLabel(destAddress, "JMP_%x_%d".formatted(tableAddress, labels.size())));
+    }
+
+    if(labels.isEmpty()) {
+      throw new RuntimeException("Empty table at 0x%x".formatted(tableAddress));
     }
 
     script.entries[tableAddress / 0x4] = new PointerTable(tableAddress, labels.toArray(String[]::new));
