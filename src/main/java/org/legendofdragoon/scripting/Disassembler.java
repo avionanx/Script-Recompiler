@@ -40,8 +40,6 @@ public class Disassembler {
       this.probeBranch(script, entrypoint);
     }
 
-    this.probeBranch(script, 0x26c);
-
     this.fillStrings(script);
     this.fillData(script);
 
