@@ -110,6 +110,23 @@ public class Lexer {
               case INLINE_1, INLINE_2, INLINE_TABLE_1, INLINE_TABLE_3 -> param.rawValues[0] |= (address - op.address) / 0x4 & 0xffff;
               case INLINE_TABLE_2, INLINE_3, INLINE_TABLE_4 -> throw new RuntimeException("Need to implement label bindings for " + param.type);
             }
+
+            if((op.type == OpType.GOSUB_TABLE || op.type == OpType.JMP_TABLE) && param.type.isInlineTable()) {
+              final int tableOffset = labels.get(param.label) / 4;
+
+              for(int entryOffset = tableOffset; entryOffset < entries.size(); entryOffset++) {
+                final int finalEntryOffset = entryOffset;
+                if(entryOffset != tableOffset && labels.entrySet().stream().filter(e -> e.getValue() == finalEntryOffset * 0x4).map(Map.Entry::getKey).anyMatch(tables::contains)) {
+                  break;
+                }
+
+                if(entries.get(entryOffset) instanceof final PointerTable table) {
+                  tables.add(table.labels[0]);
+                } else {
+                  break;
+                }
+              }
+            }
           }
         }
       }
