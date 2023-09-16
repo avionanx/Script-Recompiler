@@ -30,6 +30,7 @@ public final class Compile {
     LOGGER.info("Compiling file %s", args[0]);
 
     final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
+//    final ScriptMeta meta = new ScriptMeta(Path.of("."));
 
     final Compiler compiler = new Compiler();
     final Lexer lexer = new Lexer(meta);

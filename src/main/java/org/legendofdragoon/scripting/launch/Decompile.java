@@ -31,11 +31,14 @@ public final class Decompile {
     final Path inputFile = Paths.get(args[0]);
     final byte[] bytes = Files.readAllBytes(inputFile);
 
+    LOGGER.info("Downloading meta...");
     final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
+//    final ScriptMeta meta = new ScriptMeta(Path.of("."));
 
     final Disassembler disassembler = new Disassembler(meta);
     final Translator translator = new Translator();
 
+    LOGGER.info("Disassembling...");
     final Script script = disassembler.disassemble(bytes);
     final String decompiledOutput = translator.translate(script, meta);
 

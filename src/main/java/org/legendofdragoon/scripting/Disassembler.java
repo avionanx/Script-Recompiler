@@ -123,7 +123,7 @@ public class Disassembler {
           final ScriptMeta.ScriptMethod method = this.meta.methods[op.headerParam];
 
           if(this.meta.methods[op.headerParam].params.length != op.params.length) {
-            throw new RuntimeException("CALL " + op.headerParam + " has wrong number of args! " + method.params.length + '/' + op.params.length);
+            throw new RuntimeException("CALL " + op.headerParam + " (" + this.meta.methods[op.headerParam] + ") has wrong number of args! " + method.params.length + '/' + op.params.length);
           }
 
           for(int i = 0; i < op.params.length; i++) {

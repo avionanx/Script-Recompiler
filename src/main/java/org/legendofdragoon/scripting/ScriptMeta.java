@@ -8,6 +8,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -25,6 +27,33 @@ public class ScriptMeta {
     final List<String[]> enumsCsv = this.loadCsvUrl(new URL(baseUrl + "/enums.csv"));
 
     final List<ScriptMethod> methods = new ArrayList<>();
+    final List<String> enumClasses = new ArrayList<>();
+    this.loadMeta(descriptionsCsv, paramsCsv, enumsCsv, methods, enumClasses);
+    this.methods = methods.toArray(ScriptMethod[]::new);
+
+    for(final String className : enumClasses) {
+      final String[] values = this.loadCsvUrl(new URL(baseUrl + '/' + className + ".csv")).stream().map(v -> v[0]).toArray(String[]::new);
+      this.enums.put(className, values);
+    }
+  }
+
+  public ScriptMeta(final Path basePath) throws IOException, CsvException {
+    final List<String[]> descriptionsCsv = this.loadCsvFile(basePath.resolve("descriptions.csv"));
+    final List<String[]> paramsCsv = this.loadCsvFile(basePath.resolve("params.csv"));
+    final List<String[]> enumsCsv = this.loadCsvFile(basePath.resolve("enums.csv"));
+
+    final List<ScriptMethod> methods = new ArrayList<>();
+    final List<String> enumClasses = new ArrayList<>();
+    this.loadMeta(descriptionsCsv, paramsCsv, enumsCsv, methods, enumClasses);
+    this.methods = methods.toArray(ScriptMethod[]::new);
+
+    for(final String className : enumClasses) {
+      final String[] values = this.loadCsvFile(basePath.resolve(className + ".csv")).stream().map(v -> v[0]).toArray(String[]::new);
+      this.enums.put(className, values);
+    }
+  }
+
+  private void loadMeta(final List<String[]> descriptionsCsv, final List<String[]> paramsCsv, final List<String[]> enumsCsv, final List<ScriptMethod> methods, final List<String> enumClasses) {
     for(final String[] description : descriptionsCsv) {
       final List<ScriptParam> params = new ArrayList<>();
 
@@ -37,13 +66,14 @@ public class ScriptMeta {
       methods.add(new ScriptMethod(description[0], description[1], params.toArray(ScriptParam[]::new)));
     }
 
-    this.methods = methods.toArray(ScriptMethod[]::new);
-
     for(final String[] val : enumsCsv) {
       final String className = val[0];
-      final String[] values = this.loadCsvUrl(new URL(baseUrl + '/' + className + ".csv")).stream().map(v -> v[0]).toArray(String[]::new);
-      this.enums.put(className, values);
+      enumClasses.add(className);
     }
+  }
+
+  private List<String[]> loadCsvFile(final Path file) throws IOException, CsvException {
+    return this.loadCsv(Files.newInputStream(file));
   }
 
   private List<String[]> loadCsvUrl(final URL url) throws IOException, CsvException {
