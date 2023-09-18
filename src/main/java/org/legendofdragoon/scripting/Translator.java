@@ -44,9 +44,9 @@ public class Translator {
       }
 
       if(entry instanceof final Entrypoint entrypoint) {
-        builder.append("%x ".formatted(entry.address)).append("entrypoint :").append(entrypoint.destination).append('\n');
+        builder.append("%06x ".formatted(entry.address)).append("entrypoint :").append(entrypoint.destination).append('\n');
       } else if(entry instanceof final Data data) {
-        builder.append("%x ".formatted(entry.address)).append("data 0x%x".formatted(data.value)).append('\n');
+        builder.append("%06x ".formatted(entry.address)).append("data 0x%x".formatted(data.value)).append('\n');
       } else if(entry instanceof final PointerTable rel) {
         if(rel.labels.length == 0) {
           throw new RuntimeException("Empty jump table %x".formatted(rel.address));
@@ -59,7 +59,7 @@ public class Translator {
             break;
           }
 
-          builder.append("%x ".formatted(entry.address + i * 0x4)).append("rel :").append(rel.labels[i]).append('\n');
+          builder.append("%06x ".formatted(entry.address + i * 0x4)).append("rel :").append(rel.labels[i]).append('\n');
           entryIndex++;
         }
 
@@ -67,7 +67,7 @@ public class Translator {
       } else if(entry instanceof final LodString string) {
         final List<Map.Entry<Integer, List<String>>> overlappingLabels = script.labels.entrySet().stream().filter(e -> e.getKey() > string.address && e.getKey() < string.address + string.chars.length / 0x2).sorted(Comparator.comparingInt(Map.Entry::getKey)).toList();
 
-        builder.append("%x ".formatted(entry.address)).append("data str[");
+        builder.append("%06x ".formatted(entry.address)).append("data str[");
 
         if(overlappingLabels.isEmpty()) {
           builder.append(string);
@@ -84,7 +84,7 @@ public class Translator {
               builder.append(label).append(":\n");
             }
 
-            builder.append("%x ".formatted(overlappingLabel.getKey())).append("data str[");
+            builder.append("%06x ".formatted(overlappingLabel.getKey())).append("data str[");
 
             currentIndex = nextLabelIndex;
           }
@@ -95,7 +95,7 @@ public class Translator {
         builder.append("]\n");
         entryIndex += string.chars.length / 2;
       } else if(entry instanceof final Op op) {
-        builder.append("%x ".formatted(entry.address)).append(op.type.name);
+        builder.append("%06x ".formatted(entry.address)).append(op.type.name);
 
         if(op.type == OpType.CALL) {
           builder.append(' ').append(meta.methods[op.headerParam].name);
