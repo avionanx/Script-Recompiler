@@ -29,7 +29,7 @@ public class Batch {
   public static void main(final String[] args) throws IOException, CsvException {
     final Path root = Paths.get(args[0]);
     final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
-    Files.walk(root).toList().parallelStream().forEach(path -> {
+    Files.walk(root).toList().forEach(path -> {
       if (path.toFile().isFile()) {
         final Path relPath = root.relativize(path);
         final String decompPath = Paths.get(args[1]).resolve(relPath) + ".txt";

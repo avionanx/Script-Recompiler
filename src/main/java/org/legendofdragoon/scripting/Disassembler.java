@@ -19,8 +19,6 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 public class Disassembler {
-  private static final Logger LOGGER = LogManager.getFormatterLogger();
-
   private final ScriptMeta meta;
   private State state;
 
@@ -29,7 +27,7 @@ public class Disassembler {
   }
 
   private static final Logger LOGGER = LogManager.getFormatterLogger();
-  private static Marker DISASSEMBLER_MARKER = MarkerManager.getMarker("DISASSEMBLE");
+  private static final Marker DISASSEMBLER_MARKER = MarkerManager.getMarker("DISASSEMBLE");
 
   public Disassembler(final ScriptMeta meta) {
     this.meta = meta;

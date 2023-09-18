@@ -49,12 +49,14 @@ public final class Compile {
 
     final Path outPath;
     outPath = Path.of(Objects.requireNonNullElse(outFile, "compiled"));
-    try {
-      Files.createDirectories(outPath.getParent());
-    } catch (IOException e) {
-      LOGGER.error(COMPILE_MARKER, "Cannot create directories\n" + e);
+    if(outFile != null) {
+      try {
+        Files.createDirectories(outPath.getParent());
+      } catch (IOException e) {
+        LOGGER.error(COMPILE_MARKER, "Cannot create directories\n" + e);
 
-      return;
+        return;
+      }
     }
     Files.write(outPath, intsToBytes(recompiledSource), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
   }

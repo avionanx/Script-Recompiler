@@ -3,7 +3,7 @@
     <option name="ALTERNATIVE_JRE_PATH" value="corretto-17" />
     <option name="MAIN_CLASS_NAME" value="org.legendofdragoon.scripting.launch.Compile" />
     <module name="script-parser.main" />
-    <option name="PROGRAM_PARAMETERS" value="$FilePrompt$" />
+    <option name="PROGRAM_PARAMETERS" value="&quot;$FilePrompt$&quot;" />
     <extension name="coverage">
       <pattern>
         <option name="PATTERN" value="org.legendofdragoon.scripting.launch.*" />
