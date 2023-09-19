@@ -208,7 +208,7 @@ public class Disassembler {
   }
 
   private void probeTableOfTables(final Script script, final Set<Integer> tableDestinations, final int tableAddress) {
-    this.probeTable(script, script.subTables, tableDestinations, tableAddress, subtableAddress -> !this.isProbablyOp(subtableAddress), subtableAddress -> this.probeTableOfBranches(script, tableDestinations, subtableAddress));
+    this.probeTable(script, script.subTables, tableDestinations, tableAddress, subtableAddress -> !this.isProbablyOp(script, subtableAddress), subtableAddress -> this.probeTableOfBranches(script, tableDestinations, subtableAddress));
   }
 
   private void probeTableOfBranches(final Script script, final Set<Integer> tableDestinations, final int subtableAddress) {
@@ -226,7 +226,7 @@ public class Disassembler {
     int latestDestination = 0;
     final List<Integer> destinations = new ArrayList<>();
     final List<String> labels = new ArrayList<>();
-    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination) && (!this.isProbablyOp(entryAddress) || this.isValidOp(tableAddress + this.state.wordAt(entryAddress) * 0x4)); entryAddress += 0x4) {
+    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination) && (!this.isProbablyOp(script, entryAddress) || this.isValidOp(tableAddress + this.state.wordAt(entryAddress) * 0x4)); entryAddress += 0x4) {
       final int destAddress = tableAddress + this.state.wordAt(entryAddress) * 0x4;
 
       if(destAddress < 0x4 || destAddress >= this.state.length() - 0x4) {
@@ -279,7 +279,11 @@ public class Disassembler {
       int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
 
       if(op.type == OpType.CALL && "string".equalsIgnoreCase(this.meta.methods[op.headerParam].params[paramIndex].type)) {
-        if(this.isProbablyOp(entryAddress)) {
+        if(script.entries[entryAddress / 4] instanceof Op) {
+          break;
+        }
+
+        if(this.isProbablyOp(script, entryAddress)) {
           boolean foundTerminator = false;
 
           // Look for a string terminator at the destination
@@ -300,7 +304,7 @@ public class Disassembler {
             break;
           }
         }
-      } else if(this.isProbablyOp(entryAddress)) {
+      } else if(this.isProbablyOp(script, entryAddress)) {
         break;
       }
 
@@ -434,7 +438,7 @@ public class Disassembler {
     return this.parseHeader(offset) != null;
   }
 
-  private boolean isProbablyOp(final int address) {
+  private boolean isProbablyOp(final Script script, int address) {
     if((address & 0x3) != 0) {
       return false;
     }
@@ -443,25 +447,37 @@ public class Disassembler {
       return false;
     }
 
-    final Op op = this.parseHeader(address);
-
-    if(op == null || op.type.paramNames.length == 0) {
-      return false;
+    if(script.entries[address / 4] instanceof Op) {
+      return true;
     }
 
-    // If we read valid params that aren't immediates, it's probably an op
-    int paramAddress = address + 0x4;
-    for(int i = 0; i < op.type.paramNames.length; i++) {
-      final ParameterType parameterType = ParameterType.byOpcode(this.state.wordAt(paramAddress));
+    final int testCount = 3;
+    int certainty = 0;
+    for(int opIndex = 0; opIndex < testCount; opIndex++) {
+      final Op op = this.parseHeader(address);
 
-      if(parameterType != ParameterType.IMMEDIATE) {
-        return true;
+      if(op == null) {
+        certainty -= testCount - opIndex;
+        break;
       }
 
-      paramAddress += parameterType.width * 0x4;
+      certainty += opIndex + 1;
+
+      // If we read valid params that aren't immediates, it's probably an op
+      address += 0x4;
+
+      for(int paramIndex = 0; paramIndex < op.type.paramNames.length; paramIndex++) {
+        final ParameterType parameterType = ParameterType.byOpcode(this.state.wordAt(address));
+
+        if(parameterType != ParameterType.IMMEDIATE) {
+          certainty += 1;
+        }
+
+        address += parameterType.width * 0x4;
+      }
     }
 
-    return false;
+    return certainty >= 2;
   }
 
   private OptionalInt parseParamValue(final State state, final ParameterType param) {
