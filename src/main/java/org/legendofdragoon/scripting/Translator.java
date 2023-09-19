@@ -53,12 +53,6 @@ public class Translator {
         }
 
         for(int i = 0; i < rel.labels.length; i++) {
-          // If this table overruns something else, bail out
-          if(i != 0 && !(script.entries[entryIndex] instanceof Data)) {
-            LOGGER.warn("Jump table overrun at %x", entry.address);
-            break;
-          }
-
           builder.append("rel :").append(rel.labels[i]).append('\n');
           entryIndex++;
         }

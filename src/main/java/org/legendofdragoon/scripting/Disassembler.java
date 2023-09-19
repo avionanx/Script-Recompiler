@@ -3,6 +3,7 @@ package org.legendofdragoon.scripting;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.legendofdragoon.scripting.tokens.Data;
+import org.legendofdragoon.scripting.tokens.Entry;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
 import org.legendofdragoon.scripting.tokens.LodString;
 import org.legendofdragoon.scripting.tokens.Op;
@@ -11,6 +12,7 @@ import org.legendofdragoon.scripting.tokens.PointerTable;
 import org.legendofdragoon.scripting.tokens.Script;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -39,6 +41,37 @@ public class Disassembler {
     for(final int entrypoint : script.entrypoints) {
       this.probeBranch(script, entrypoint);
     }
+
+    for(int entryIndex = 0; entryIndex < script.entries.length; entryIndex++) {
+      final Entry entry = script.entries[entryIndex];
+
+      if(entry instanceof final PointerTable rel) {
+        entryIndex++;
+
+        for(int labelIndex = 1; labelIndex < rel.labels.length; labelIndex++) {
+          // If this table overruns something else, bail out
+          if(script.entries[entryIndex] != null && !(script.entries[entryIndex] instanceof Data)) {
+            LOGGER.warn("Jump table overrun at %x", entry.address);
+
+            for(int toRemove = labelIndex; toRemove < rel.labels.length; toRemove++) {
+              // If this is the last usage of the label, remove it
+              if(script.labelUsageCount.get(rel.labels[toRemove]) <= 1) {
+                for(final List<String> labels : script.labels.values()) {
+                  labels.remove(rel.labels[toRemove]);
+                }
+              }
+            }
+
+            rel.labels = Arrays.copyOfRange(rel.labels, 0, labelIndex);
+            break;
+          }
+
+          entryIndex++;
+        }
+      }
+    }
+
+    script.buildStrings.forEach(Runnable::run);
 
     this.fillStrings(script);
     this.fillData(script);
@@ -113,7 +146,7 @@ public class Disassembler {
             param.resolvedValue.ifPresent(tableAddress -> this.probeTableOfBranches(script, tableDestinations, tableAddress));
           } else {
             final int finalI = i;
-            param.resolvedValue.ifPresent(tableAddress -> this.handlePointerTable(script, op, finalI, tableAddress));
+            param.resolvedValue.ifPresent(tableAddress -> this.handlePointerTable(script, op, finalI, tableAddress, script.buildStrings));
           }
         }
       }
@@ -260,7 +293,7 @@ public class Disassembler {
     destinations.stream().distinct().sorted(Comparator.reverseOrder()).forEach(visitor);
   }
 
-  private void handlePointerTable(final Script script, final Op op, final int paramIndex, final int tableAddress) {
+  private void handlePointerTable(final Script script, final Op op, final int paramIndex, final int tableAddress, final List<Runnable> buildStrings) {
     if(tableAddress / 4 >= script.entries.length) {
       LOGGER.warn("Op %s param %d points to invalid pointer table %x", op, paramIndex, tableAddress);
       return;
@@ -333,20 +366,28 @@ public class Disassembler {
       labels[entryIndex] = script.addLabel(destinations.get(entryIndex), "PTR_%x_%d".formatted(tableAddress, entryIndex));
     }
 
-    script.entries[tableAddress / 0x4] = new PointerTable(tableAddress, labels);
+    final PointerTable table = new PointerTable(tableAddress, labels);
+    script.entries[tableAddress / 0x4] = table;
 
     // Add string entries if appropriate
     if(op.type == OpType.CALL) {
       if("string".equalsIgnoreCase(this.meta.methods[op.headerParam].params[paramIndex].type)) {
-        destinations.sort(Integer::compareTo);
-
-        for(int i = 0; i < destinations.size(); i++) {
-          if(i < destinations.size() - 1) {
-            script.strings.add(new StringInfo(destinations.get(i), destinations.get(i + 1) - destinations.get(i))); // String length is next string - this string
-          } else {
-            script.strings.add(new StringInfo(destinations.get(i), -1)); // We don't know the length
+        buildStrings.add(() -> {
+          //IMPORTANT: we need to remove any extra elements that were truncated by the table overrun detector
+          while(destinations.size() > table.labels.length) {
+            destinations.remove(destinations.size() - 1);
           }
-        }
+
+          destinations.sort(Integer::compareTo);
+
+          for(int i = 0; i < destinations.size(); i++) {
+            if(i < destinations.size() - 1) {
+              script.strings.add(new StringInfo(destinations.get(i), destinations.get(i + 1) - destinations.get(i))); // String length is next string - this string
+            } else {
+              script.strings.add(new StringInfo(destinations.get(i), -1)); // We don't know the length
+            }
+          }
+        });
       }
     }
   }

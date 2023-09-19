@@ -19,6 +19,9 @@ public class Script {
   public final Set<Integer> jumpTableDests = new HashSet<>();
   public final Set<StringInfo> strings = new HashSet<>();
   public final Map<Integer, List<String>> labels = new HashMap<>();
+  public final Map<String, Integer> labelUsageCount = new HashMap<>();
+  /** Deferred list of string tables to build after looking for table overruns */
+  public final List<Runnable> buildStrings = new ArrayList<>();
   private int labelCount;
 
   public Script(final int length) {
@@ -28,10 +31,15 @@ public class Script {
   /** Uses an existing label if one already points to this address */
   public String addLabel(final int destAddress, final String name) {
     if(this.labels.containsKey(destAddress)) {
-      return this.labels.get(destAddress).get(0);
+      final String existing = this.labels.get(destAddress).get(0);
+      this.labelUsageCount.putIfAbsent(existing, 0);
+      this.labelUsageCount.compute(existing, (label, value) -> value + 1);
+      return existing;
     }
 
     this.labels.computeIfAbsent(destAddress, k -> new ArrayList<>()).add(name);
+    this.labelUsageCount.putIfAbsent(name, 0);
+    this.labelUsageCount.compute(name, (label, value) -> value + 1);
     this.labelCount++;
     return name;
   }
