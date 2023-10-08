@@ -41,6 +41,9 @@ public class Lexer {
   public static final Pattern GAMEVAR_ARRAY_2_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?\\+\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]\\s*?\\[\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
   public static final Pattern INLINE_1_MATCHER = Pattern.compile("^inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?]$", Pattern.CASE_INSENSITIVE);
   public static final Pattern INLINE_2_MATCHER = Pattern.compile("^inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\[\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
+
+  public static final Pattern GAMEVAR_3_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?\\+\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$");
+
   public static final Pattern INLINE_3_MATCHER = Pattern.compile("^inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\[\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
   public static final Pattern CONTROL_PATTERN = Pattern.compile("^<\\s*?([a-z]+)(?:\\s*?=\\s*?(" + NUMBER_SUBPATTERN + "))?\\s*?>$", Pattern.CASE_INSENSITIVE);
 
@@ -387,6 +390,12 @@ public class Lexer {
       }
 
       return new Param(address, ParameterType.INLINE_2, new int[] { inline }, OptionalInt.empty(), label);
+    }
+
+    if((matcher = GAMEVAR_3_PATTERN.matcher(paramString)).matches()) {
+      final int p0 = this.parseInt(matcher.group(1));
+      final int p1 = this.parseInt(matcher.group(2));
+      return new Param(address, ParameterType.GAMEVAR_3, new int[] { this.packParam(ParameterType.GAMEVAR_3, p0, p1) }, OptionalInt.empty(), null);
     }
 
     if((matcher = INLINE_3_MATCHER.matcher(paramString)).matches()) {
