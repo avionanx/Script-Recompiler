@@ -38,6 +38,7 @@ public final class Decompile {
     final byte[] bytes = Files.readAllBytes(Paths.get(inFile));
 
     if(meta == null) {
+      LOGGER.info("Downloading meta...");
       meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
     }
 
@@ -47,6 +48,7 @@ public final class Decompile {
     final Script script;
     final String decompiledOutput;
     try {
+      LOGGER.info("Disassembling...");
       script = disassembler.disassemble(bytes);
       decompiledOutput = translator.translate(script, meta);
     } catch (NotAScriptException e) {

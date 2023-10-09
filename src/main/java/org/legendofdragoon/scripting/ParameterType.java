@@ -12,19 +12,19 @@ public enum ParameterType {
   GAMEVAR_ARRAY_2(0x8, 1),
   INLINE_1(0x9, 1),
   INLINE_2(0xa, 1),
-  INLINE_3(0xb, 1),
-  INLINE_4(0xc, 2),
+  INLINE_TABLE_1(0xb, 1),
+  INLINE_TABLE_2(0xc, 2),
   OTHER_STORAGE(0xd, 1),
   GAMEVAR_3(0xe, 1),
   GAMEVAR_ARRAY_3(0xf, 1),
   GAMEVAR_ARRAY_4(0x10, 1),
   GAMEVAR_ARRAY_5(0x11, 1),
   _12(0x12, 1),
-  INLINE_5(0x13, 1),
-  INLINE_6(0x14, 1),
+  INLINE_3(0x13, 1),
+  INLINE_TABLE_3(0x14, 1),
   _15(0x15, 1),
   _16(0x16, 1),
-  INLINE_7(0x17, 2),
+  INLINE_TABLE_4(0x17, 2),
   ;
 
   public static ParameterType byOpcode(final int opcode) {
@@ -47,11 +47,11 @@ public enum ParameterType {
 
   /** table[index] */
   public boolean isInline() {
-    return this == INLINE_1 || this == INLINE_2 || this == INLINE_3 || this == INLINE_4 || this == INLINE_5 || this == INLINE_6 || this == INLINE_7;
+    return this == INLINE_1 || this == INLINE_2 || this == INLINE_TABLE_1 || this == INLINE_TABLE_2 || this == INLINE_3 || this == INLINE_TABLE_3 || this == INLINE_TABLE_4;
   }
 
   /** table[table[index]] */
-  public boolean isRelativeInline() {
-    return this == INLINE_3 || this == INLINE_4 || this == INLINE_6 || this == INLINE_7;
+  public boolean isInlineTable() {
+    return this == INLINE_TABLE_1 || this == INLINE_TABLE_2 || this == INLINE_TABLE_3 || this == INLINE_TABLE_4;
   }
 }

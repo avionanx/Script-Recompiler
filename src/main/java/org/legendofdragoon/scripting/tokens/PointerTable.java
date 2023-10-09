@@ -3,7 +3,7 @@ package org.legendofdragoon.scripting.tokens;
 import java.util.Arrays;
 
 public class PointerTable extends Entry {
-  public final String[] labels;
+  public String[] labels;
 
   public PointerTable(final int address, final String[] labels) {
     super(address);

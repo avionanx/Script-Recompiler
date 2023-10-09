@@ -30,6 +30,7 @@ public class Lexer {
   public static final Pattern LABEL_PARAM_PATTERN = Pattern.compile("^:(\\w+)$", Pattern.CASE_INSENSITIVE);
   public static final Pattern CALL_PATTERN = Pattern.compile("^[a-z_]\\w*::[a-z_]\\w*$", Pattern.CASE_INSENSITIVE);
   public static final Pattern STRING_PATTERN = Pattern.compile("^str\\[(.*?)]$", Pattern.CASE_INSENSITIVE);
+  public static final Pattern OPERATOR_PATTERN = Pattern.compile("^(<=|<|==|!=|>|>=|&|!&)$", Pattern.CASE_INSENSITIVE);
 
   public static final Pattern STORAGE_PATTERN = Pattern.compile("^stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
   public static final Pattern OTHER_OTHER_STORAGE_PATTERN = Pattern.compile("^stor\\s*?\\[\\s*?stor\\s*?\\[\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?,\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?,\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
@@ -46,7 +47,7 @@ public class Lexer {
   public static final Pattern GAMEVAR_ARRAY_3_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
   public static final Pattern GAMEVAR_ARRAY_4_PATTERN = Pattern.compile("^var\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?\\s*?\\+\\s*?stor\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
 
-  public static final Pattern INLINE_6_PATTERN = Pattern.compile("^inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\[\\s*?inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
+  public static final Pattern INLINE_6_PATTERN = Pattern.compile("^inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?inl\\s*?\\[(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
 
   private final ScriptMeta meta;
 
@@ -79,7 +80,7 @@ public class Lexer {
         }
 
         for(final Param param : op.params) {
-          if(param.type.isRelativeInline()) {
+          if(param.type.isInlineTable()) {
             tables.add(param.label);
           }
 
@@ -106,8 +107,25 @@ public class Lexer {
             final int address = labels.get(param.label);
 
             switch(param.type) {
-              case INLINE_1, INLINE_2, INLINE_3, INLINE_6 -> param.rawValues[0] |= (address - op.address) / 0x4 & 0xffff;
-              case INLINE_4, INLINE_5, INLINE_7 -> throw new RuntimeException("Need to implement label bindings for " + param.type);
+              case INLINE_1, INLINE_2, INLINE_TABLE_1, INLINE_TABLE_3 -> param.rawValues[0] |= (address - op.address) / 0x4 & 0xffff;
+              case INLINE_TABLE_2, INLINE_3, INLINE_TABLE_4 -> throw new RuntimeException("Need to implement label bindings for " + param.type);
+            }
+
+            if((op.type == OpType.GOSUB_TABLE || op.type == OpType.JMP_TABLE) && param.type.isInlineTable()) {
+              final int tableOffset = labels.get(param.label) / 4;
+
+              for(int entryOffset = tableOffset; entryOffset < entries.size(); entryOffset++) {
+                final int finalEntryOffset = entryOffset;
+                if(entryOffset != tableOffset && labels.entrySet().stream().filter(e -> e.getValue() == finalEntryOffset * 0x4).map(Map.Entry::getKey).anyMatch(tables::contains)) {
+                  break;
+                }
+
+                if(entries.get(entryOffset) instanceof final PointerTable table) {
+                  tables.add(table.labels[0]);
+                } else {
+                  break;
+                }
+              }
             }
           }
         }
@@ -219,21 +237,24 @@ public class Lexer {
   private Param[] parseParams(final int opAddress, int address, final OpType opType, final String paramsString) {
     final String[] paramStrings = this.splitParameters(paramsString);
     final Param[] params = new Param[paramStrings.length];
+    int headerParam = 0;
 
     for(int i = 0; i < params.length; i++) {
-      final Param param = this.parseParam(opAddress, address, paramStrings[i]);
+      final Param param = this.parseParam(opAddress, address, opType, headerParam, i - (opType.headerParamName != null ? 1 : 0), paramStrings[i]);
       params[i] = param;
 
       // If we have a header param, the first param returns will be a pseudo-param that doesn't advance the address since it's part of the header
       if(i != 0 || opType.headerParamName == null) {
         address += param.type.width * 0x4;
+      } else {
+        headerParam = param.rawValues[0];
       }
     }
 
     return params;
   }
 
-  private Param parseParam(final int opAddress, final int address, String paramString) {
+  private Param parseParam(final int opAddress, final int address, final OpType opType, final int headerParam, final int paramIndex, String paramString) {
     // Convert call function refs to ints
     if(CALL_PATTERN.matcher(paramString).matches()) {
       for(int i = 0; i < this.meta.methods.length; i++) {
@@ -256,6 +277,37 @@ public class Lexer {
     } catch(final NumberFormatException ignored) { }
 
     Matcher matcher;
+    if(paramIndex == -1 && (opType == OpType.WAIT_CMP || opType == OpType.WAIT_CMP_0 || opType == OpType.JMP_CMP || opType == OpType.JMP_CMP_0) && (matcher = OPERATOR_PATTERN.matcher(paramString)).matches()) {
+      final int operatorIndex = switch(matcher.group(1)) {
+        case "<=" -> 0;
+        case "<" -> 1;
+        case "==" -> 2;
+        case "!=" -> 3;
+        case ">" -> 4;
+        case ">=" -> 5;
+        case "&" -> 6;
+        case "!&" -> 7;
+        default -> throw new RuntimeException("Unknown operator " + matcher.group(1));
+      };
+
+      return new Param(address, ParameterType.IMMEDIATE, new int[] { operatorIndex }, OptionalInt.of(operatorIndex), null);
+    }
+
+    if(paramIndex != -1 && opType == OpType.CALL) {
+      final String enumClass = this.meta.methods[headerParam].params[paramIndex].type;
+      if(this.meta.enums.containsKey(enumClass)) {
+        final String[] enumValues = this.meta.enums.get(enumClass);
+
+        for(int i = 0; i < enumValues.length; i++) {
+          if(enumValues[i].equalsIgnoreCase(paramString)) {
+            return new Param(address, ParameterType.IMMEDIATE, new int[] { i }, OptionalInt.of(i), null);
+          }
+        }
+
+        throw new RuntimeException("Unknown " + enumClass + " value " + paramString);
+      }
+    }
+
     if((matcher = STORAGE_PATTERN.matcher(paramString)).matches()) {
       final int p0 = this.parseInt(matcher.group(1));
       return new Param(address, ParameterType.STORAGE, new int[] { this.packParam(ParameterType.STORAGE, p0) }, OptionalInt.empty(), null);
@@ -348,17 +400,17 @@ public class Lexer {
       final String label;
       if(LABEL_PARAM_PATTERN.matcher(val).matches()) {
         final int p2 = this.parseInt(matcher.group(3));
-        inline = this.packParam(ParameterType.INLINE_3, 0, 0, p2);
+        inline = this.packParam(ParameterType.INLINE_TABLE_1, 0, 0, p2);
         label = val.substring(1);
       } else {
         final int value = this.parseInt(val);
         final int p0 = (value - opAddress) / 0x4;
         final int p2 = this.parseInt(matcher.group(3));
-        inline = this.packParam(ParameterType.INLINE_3, 0, 0, p2) | p0 & 0xffff;
+        inline = this.packParam(ParameterType.INLINE_TABLE_1, 0, 0, p2) | p0 & 0xffff;
         label = null;
       }
 
-      return new Param(address, ParameterType.INLINE_3, new int[] { inline }, OptionalInt.empty(), label);
+      return new Param(address, ParameterType.INLINE_TABLE_1, new int[] { inline }, OptionalInt.empty(), label);
     }
 
     // INLINE_4
@@ -392,17 +444,17 @@ public class Lexer {
       final String label;
       if(LABEL_PARAM_PATTERN.matcher(val).matches()) {
         final int p2 = this.parseInt(matcher.group(3));
-        inline = this.packParam(ParameterType.INLINE_6, 0, 0, p2);
+        inline = this.packParam(ParameterType.INLINE_TABLE_3, 0, 0, p2);
         label = val.substring(1);
       } else {
         final int value = this.parseInt(val);
         final int p0 = (value - opAddress) / 0x4;
         final int p2 = this.parseInt(matcher.group(3));
-        inline = this.packParam(ParameterType.INLINE_6, 0, 0, p2) | p0 & 0xffff;
+        inline = this.packParam(ParameterType.INLINE_TABLE_3, 0, 0, p2) | p0 & 0xffff;
         label = null;
       }
 
-      return new Param(address, ParameterType.INLINE_6, new int[] { inline }, OptionalInt.empty(), label);
+      return new Param(address, ParameterType.INLINE_TABLE_3, new int[] { inline }, OptionalInt.empty(), label);
     }
 
     // _15

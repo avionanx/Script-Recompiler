@@ -29,7 +29,8 @@ public final class Launcher {
 
     final byte[] bytes = Files.readAllBytes(Paths.get(args[0]));
 
-    final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
+//    final ScriptMeta meta = new ScriptMeta("https://legendofdragoon.org/scmeta");
+    final ScriptMeta meta = new ScriptMeta(Path.of("."));
 
     final Disassembler disassembler = new Disassembler(meta);
     final Compiler compiler = new Compiler();
