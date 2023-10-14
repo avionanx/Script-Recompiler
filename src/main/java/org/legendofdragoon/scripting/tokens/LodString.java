@@ -294,7 +294,7 @@ public class LodString extends Entry {
     VAR("var", 0xa800, true),
     SAUTO("sauto", 0xb000, true),
     ELEMENT("element", 0xb100, true),
-    SBAT("arrow", 0xb200, true),
+    ARROW("arrow", 0xb200, true),
 
     INVALID("chr", 0, true),
     ;
