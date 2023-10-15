@@ -288,10 +288,14 @@ public class LodString extends Entry {
 
   private enum CONTROLS {
     LINE("line", 0xa1ff, false),
+    BUTTON("button", 0xa200, false),
     MULTIBOX("multibox", 0xa3ff, false),
     SPEED("speed", 0xa500, true),
+    PAUSE("pause", 0xa600, true),
     COLOUR("colour", 0xa700, true),
     VAR("var", 0xa800, true),
+    XOFFSET("xoffset", 0xad00, true),
+    YOFFSET("yoffset", 0xae00, true),
     SAUTO("sauto", 0xb000, true),
     ELEMENT("element", 0xb100, true),
     ARROW("arrow", 0xb200, true),
