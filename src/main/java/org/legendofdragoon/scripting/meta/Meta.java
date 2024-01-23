@@ -1,4 +1,4 @@
-package org.legendofdragoon.scripting;
+package org.legendofdragoon.scripting.meta;
 
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
@@ -12,45 +12,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class ScriptMeta {
+public class Meta {
   public final ScriptMethod[] methods;
-  public final Map<String, String[]> enums = new HashMap<>();
+  public final Map<String, String[]> enums;
 
-  public ScriptMeta(final String baseUrl) throws IOException, CsvException {
-    final List<String[]> descriptionsCsv = this.loadCsvUrl(new URL(baseUrl + "/descriptions.csv"));
-    final List<String[]> paramsCsv = this.loadCsvUrl(new URL(baseUrl + "/params.csv"));
-    final List<String[]> enumsCsv = this.loadCsvUrl(new URL(baseUrl + "/enums.csv"));
-
-    final List<ScriptMethod> methods = new ArrayList<>();
-    final List<String> enumClasses = new ArrayList<>();
-    this.loadMeta(descriptionsCsv, paramsCsv, enumsCsv, methods, enumClasses);
-    this.methods = methods.toArray(ScriptMethod[]::new);
-
-    for(final String className : enumClasses) {
-      final String[] values = this.loadCsvUrl(new URL(baseUrl + '/' + className + ".csv")).stream().map(v -> v[0]).toArray(String[]::new);
-      this.enums.put(className, values);
-    }
-  }
-
-  public ScriptMeta(final Path basePath) throws IOException, CsvException {
-    final List<String[]> descriptionsCsv = this.loadCsvFile(basePath.resolve("descriptions.csv"));
-    final List<String[]> paramsCsv = this.loadCsvFile(basePath.resolve("params.csv"));
-    final List<String[]> enumsCsv = this.loadCsvFile(basePath.resolve("enums.csv"));
-
-    final List<ScriptMethod> methods = new ArrayList<>();
-    final List<String> enumClasses = new ArrayList<>();
-    this.loadMeta(descriptionsCsv, paramsCsv, enumsCsv, methods, enumClasses);
-    this.methods = methods.toArray(ScriptMethod[]::new);
-
-    for(final String className : enumClasses) {
-      final String[] values = this.loadCsvFile(basePath.resolve(className + ".csv")).stream().map(v -> v[0]).toArray(String[]::new);
-      this.enums.put(className, values);
-    }
+  public Meta(final ScriptMethod[] methods, final Map<String, String[]> enums) {
+    this.methods = methods;
+    this.enums = enums;
   }
 
   private void loadMeta(final List<String[]> descriptionsCsv, final List<String[]> paramsCsv, final List<String[]> enumsCsv, final List<ScriptMethod> methods, final List<String> enumClasses) {
@@ -70,10 +42,6 @@ public class ScriptMeta {
       final String className = val[0];
       enumClasses.add(className);
     }
-  }
-
-  private List<String[]> loadCsvFile(final Path file) throws IOException, CsvException {
-    return this.loadCsv(Files.newInputStream(file));
   }
 
   private List<String[]> loadCsvUrl(final URL url) throws IOException, CsvException {

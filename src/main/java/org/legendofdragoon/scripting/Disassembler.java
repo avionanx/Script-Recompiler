@@ -2,6 +2,7 @@ package org.legendofdragoon.scripting;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.legendofdragoon.scripting.meta.Meta;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entry;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
@@ -24,10 +25,10 @@ import java.util.function.Predicate;
 public class Disassembler {
   private static final Logger LOGGER = LogManager.getFormatterLogger();
 
-  private final ScriptMeta meta;
+  private final Meta meta;
   private State state;
 
-  public Disassembler(final ScriptMeta meta) {
+  public Disassembler(final Meta meta) {
     this.meta = meta;
   }
 
@@ -153,14 +154,14 @@ public class Disassembler {
 
       switch(op.type) {
         case CALL -> {
-          final ScriptMeta.ScriptMethod method = this.meta.methods[op.headerParam];
+          final Meta.ScriptMethod method = this.meta.methods[op.headerParam];
 
           if(this.meta.methods[op.headerParam].params.length != op.params.length) {
             throw new RuntimeException("CALL " + op.headerParam + " (" + this.meta.methods[op.headerParam] + ") has wrong number of args! " + method.params.length + '/' + op.params.length);
           }
 
           for(int i = 0; i < op.params.length; i++) {
-            final ScriptMeta.ScriptParam param = method.params[i];
+            final Meta.ScriptParam param = method.params[i];
 
             if(!"none".equalsIgnoreCase(param.branch)) {
               op.params[i].resolvedValue.ifPresentOrElse(offset1 -> {

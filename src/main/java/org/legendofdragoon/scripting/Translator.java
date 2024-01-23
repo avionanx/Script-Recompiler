@@ -2,6 +2,7 @@ package org.legendofdragoon.scripting;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.legendofdragoon.scripting.meta.Meta;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entry;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
 public class Translator {
   private static final Logger LOGGER = LogManager.getFormatterLogger();
 
-  public String translate(final Script script, final ScriptMeta meta) {
+  public String translate(final Script script, final Meta meta) {
     final StringBuilder builder = new StringBuilder();
 
     for(int entryIndex = 0; entryIndex < script.entries.length; entryIndex++) {
@@ -156,7 +157,7 @@ public class Translator {
     return "0x%x".formatted(op.headerParam);
   }
 
-  private String buildParam(final ScriptMeta meta, final Op op, final Param param, final int paramIndex) {
+  private String buildParam(final Meta meta, final Op op, final Param param, final int paramIndex) {
     if(param.label != null) {
       final String label = ':' + param.label;
 
@@ -201,7 +202,7 @@ public class Translator {
     };
   }
 
-  private String getImmediateParam(final ScriptMeta meta, final Op op, final int paramIndex, final int value) {
+  private String getImmediateParam(final Meta meta, final Op op, final int paramIndex, final int value) {
     if(op.type == OpType.CALL && meta.enums.containsKey(meta.methods[op.headerParam].params[paramIndex].type)) {
       return meta.enums.get(meta.methods[op.headerParam].params[paramIndex].type)[value];
     }

@@ -1,5 +1,6 @@
 package org.legendofdragoon.scripting;
 
+import org.legendofdragoon.scripting.meta.Meta;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entry;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
@@ -52,9 +53,9 @@ public class Lexer {
 
   public static final Pattern INLINE_6_PATTERN = Pattern.compile("^inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?inl\\s*?\\[(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
 
-  private final ScriptMeta meta;
+  private final Meta meta;
 
-  public Lexer(final ScriptMeta meta) {
+  public Lexer(final Meta meta) {
     this.meta = meta;
   }
 
