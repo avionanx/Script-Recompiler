@@ -1,5 +1,6 @@
 package org.legendofdragoon.scripting;
 
+import com.github.difflib.patch.PatchFailedException;
 import com.opencsv.exceptions.CsvException;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -35,9 +36,9 @@ public final class Shell {
 
   private static final Logger LOGGER = LogManager.getFormatterLogger();
 
-  public static void main(final String[] args) throws IOException, URISyntaxException, CsvException, NoSuchVersionException {
+  public static void main(final String[] args) throws IOException, URISyntaxException, CsvException, NoSuchVersionException, PatchFailedException {
     if(args.length == 0) {
-      LOGGER.info("Commands: [v]ersions, [d]ecompile, [c]ompile");
+      LOGGER.info("Commands: [v]ersions, [d]ecompile, [c]ompile, [g]enpatch, [a]pplypatch");
       System.exit(1);
       return;
     }
@@ -54,6 +55,18 @@ public final class Shell {
         LOGGER.info(version);
       }
 
+      System.exit(0);
+      return;
+    }
+
+    if("g".equals(args[0]) || "genpatch".equals(args[0])) {
+      generateDiff(args);
+      System.exit(0);
+      return;
+    }
+
+    if("a".equals(args[0]) || "applypatch".equals(args[0])) {
+      applyDiff(args);
       System.exit(0);
       return;
     }
@@ -124,6 +137,84 @@ public final class Shell {
         System.exit(1);
       }
     }
+  }
+
+  private static void generateDiff(final String[] args) throws IOException {
+    final Options options = new Options();
+    options.addRequiredOption("a", "original", true, "The original file");
+    options.addRequiredOption("b", "modified", true, "The modified file");
+    options.addRequiredOption("o", "out", true, "The output file");
+
+    final CommandLine cmd;
+    final CommandLineParser parser = new DefaultParser();
+    final HelpFormatter helper = new HelpFormatter();
+
+    try {
+      cmd = parser.parse(options, args);
+    } catch(final ParseException e) {
+      LOGGER.error(e.getMessage());
+      helper.printHelp("Usage:", options);
+      System.exit(1);
+      return;
+    }
+
+    final Path originalFile = Paths.get(cmd.getOptionValue("original")).toAbsolutePath();
+    final Path modifiedFile = Paths.get(cmd.getOptionValue("modified")).toAbsolutePath();
+    final Path outputFile = Paths.get(cmd.getOptionValue("out")).toAbsolutePath();
+
+    if(!Files.exists(originalFile) || !Files.exists(modifiedFile)) {
+      LOGGER.error("Error: one or both input files do not exist");
+      System.exit(1);
+      return;
+    }
+
+    LOGGER.info("Generating diff...");
+    LOGGER.info("Original: %s", originalFile);
+    LOGGER.info("Modified: %s", modifiedFile);
+    LOGGER.info("Output: %s", outputFile);
+
+    final String output = Patcher.generatePatch(originalFile, modifiedFile);
+    Files.createDirectories(outputFile.getParent());
+    Files.writeString(outputFile, output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+  }
+
+  private static void applyDiff(final String[] args) throws IOException, PatchFailedException {
+    final Options options = new Options();
+    options.addRequiredOption("a", "original", true, "The original file");
+    options.addRequiredOption("b", "patch", true, "The patch file");
+    options.addRequiredOption("o", "out", true, "The output file");
+
+    final CommandLine cmd;
+    final CommandLineParser parser = new DefaultParser();
+    final HelpFormatter helper = new HelpFormatter();
+
+    try {
+      cmd = parser.parse(options, args);
+    } catch(final ParseException e) {
+      LOGGER.error(e.getMessage());
+      helper.printHelp("Usage:", options);
+      System.exit(1);
+      return;
+    }
+
+    final Path originalFile = Paths.get(cmd.getOptionValue("original")).toAbsolutePath();
+    final Path patchFile = Paths.get(cmd.getOptionValue("patch")).toAbsolutePath();
+    final Path outputFile = Paths.get(cmd.getOptionValue("out")).toAbsolutePath();
+
+    if(!Files.exists(originalFile) || !Files.exists(patchFile)) {
+      LOGGER.error("Error: one or both input files do not exist");
+      System.exit(1);
+      return;
+    }
+
+    LOGGER.info("Applying diff...");
+    LOGGER.info("Original: %s", originalFile);
+    LOGGER.info("Patch: %s", patchFile);
+    LOGGER.info("Output: %s", outputFile);
+
+    final String output = Patcher.applyPatch(originalFile, patchFile);
+    Files.createDirectories(outputFile.getParent());
+    Files.writeString(outputFile, output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
   }
 
   private static byte[] intsToBytes(final int[] ints) {
