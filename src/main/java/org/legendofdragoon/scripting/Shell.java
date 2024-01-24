@@ -38,7 +38,7 @@ public final class Shell {
 
   public static void main(final String[] args) throws IOException, URISyntaxException, CsvException, NoSuchVersionException, PatchFailedException {
     if(args.length == 0) {
-      LOGGER.info("Commands: [v]ersions, [d]ecompile, [c]ompile, [g]enpatch, [a]pplypatch");
+      LOGGER.info("Commands: [v]ersions, [d]ecompile, [c]ompile, [g]enpatch, [a]pplypatch, [u]ndopatch");
       System.exit(1);
       return;
     }
@@ -67,6 +67,12 @@ public final class Shell {
 
     if("a".equals(args[0]) || "applypatch".equals(args[0])) {
       applyDiff(args);
+      System.exit(0);
+      return;
+    }
+
+    if("u".equals(args[0]) || "undopatch".equals(args[0])) {
+      undoDiff(args);
       System.exit(0);
       return;
     }
@@ -133,7 +139,7 @@ public final class Shell {
       }
 
       default -> {
-        LOGGER.info("Commands: [v]ersions, [d]ecompile, [c]ompile, [g]enpatch, [a]pplypatch");
+        LOGGER.info("Commands: [v]ersions, [d]ecompile, [c]ompile, [g]enpatch, [a]pplypatch, [u]ndopatch");
         System.exit(1);
       }
     }
@@ -213,6 +219,45 @@ public final class Shell {
     LOGGER.info("Output: %s", outputFile);
 
     final String output = Patcher.applyPatch(originalFile, patchFile);
+    Files.createDirectories(outputFile.getParent());
+    Files.writeString(outputFile, output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+  }
+
+  private static void undoDiff(final String[] args) throws IOException, PatchFailedException {
+    final Options options = new Options();
+    options.addRequiredOption("a", "patched", true, "The patched file");
+    options.addRequiredOption("b", "patch", true, "The patch file");
+    options.addRequiredOption("o", "out", true, "The output file");
+
+    final CommandLine cmd;
+    final CommandLineParser parser = new DefaultParser();
+    final HelpFormatter helper = new HelpFormatter();
+
+    try {
+      cmd = parser.parse(options, args);
+    } catch(final ParseException e) {
+      LOGGER.error(e.getMessage());
+      helper.printHelp("Usage:", options);
+      System.exit(1);
+      return;
+    }
+
+    final Path patchedFile = Paths.get(cmd.getOptionValue("patched")).toAbsolutePath();
+    final Path patchFile = Paths.get(cmd.getOptionValue("patch")).toAbsolutePath();
+    final Path outputFile = Paths.get(cmd.getOptionValue("out")).toAbsolutePath();
+
+    if(!Files.exists(patchedFile) || !Files.exists(patchFile)) {
+      LOGGER.error("Error: one or both input files do not exist");
+      System.exit(1);
+      return;
+    }
+
+    LOGGER.info("Applying diff...");
+    LOGGER.info("Patched: %s", patchedFile);
+    LOGGER.info("Patch: %s", patchFile);
+    LOGGER.info("Output: %s", outputFile);
+
+    final String output = Patcher.undoPatch(patchedFile, patchFile);
     Files.createDirectories(outputFile.getParent());
     Files.writeString(outputFile, output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
   }
