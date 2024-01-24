@@ -2,6 +2,8 @@ package org.legendofdragoon.scripting;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 import org.legendofdragoon.scripting.meta.Meta;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entry;
@@ -24,6 +26,7 @@ import java.util.function.Predicate;
 
 public class Disassembler {
   private static final Logger LOGGER = LogManager.getFormatterLogger();
+  private static final Marker DISASSEMBLY = MarkerManager.getMarker("DISASSEMBLY");
 
   private final Meta meta;
   private State state;
@@ -77,8 +80,7 @@ public class Disassembler {
     this.fillStrings(script);
     this.fillData(script);
 
-    System.out.println("Probing complete");
-    System.out.println();
+    LOGGER.info(DISASSEMBLY, "Probing complete");
 
     return script;
   }
@@ -89,7 +91,7 @@ public class Disassembler {
       return;
     }
 
-    System.out.printf("Probing branch %x%n", offset);
+    LOGGER.info(DISASSEMBLY, "Probing branch %x%n", offset);
     script.branches.add(offset);
 
     final int oldHeaderOffset = this.state.headerOffset();
@@ -172,13 +174,13 @@ public class Disassembler {
                 }
 
                 this.probeBranch(script, offset1);
-              }, () -> System.out.printf("Skipping CALL at %x due to unknowable parameter%n", this.state.headerOffset()));
+              }, () -> LOGGER.warn("Skipping CALL at %x due to unknowable parameter%n", this.state.headerOffset()));
             }
           }
         }
 
         case JMP -> {
-          op.params[0].resolvedValue.ifPresentOrElse(offset1 -> this.probeBranch(script, offset1), () -> System.out.printf("Skipping JUMP at %x due to unknowable parameter%n", this.state.headerOffset()));
+          op.params[0].resolvedValue.ifPresentOrElse(offset1 -> this.probeBranch(script, offset1), () -> LOGGER.warn("Skipping JUMP at %x due to unknowable parameter%n", this.state.headerOffset()));
 
           if(op.params[0].resolvedValue.isPresent()) {
             break outer;
@@ -190,7 +192,7 @@ public class Disassembler {
             this.probeBranch(script, this.state.currentOffset());
             this.probeBranch(script, addr);
           }, () ->
-            System.out.printf("Skipping %s at %x due to unknowable parameter%n", op.type, this.state.headerOffset())
+            LOGGER.warn("Skipping %s at %x due to unknowable parameter%n", op.type, this.state.headerOffset())
           );
 
           // Jumps are terminal
@@ -204,7 +206,7 @@ public class Disassembler {
             } else {
               this.probeTableOfBranches(script, script.jumpTableDests, tableOffset);
             }
-          }, () -> System.out.printf("Skipping JMP_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
+          }, () -> LOGGER.warn("Skipping JMP_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
 
           // Jumps are terminal
           break outer;
@@ -213,7 +215,7 @@ public class Disassembler {
         case GOSUB -> op.params[0].resolvedValue.ifPresentOrElse(offset1 -> {
           script.subs.add(offset1);
           this.probeBranch(script, offset1);
-        }, () -> System.out.printf("Skipping GOSUB at %x due to unknowable parameter%n", this.state.headerOffset()));
+        }, () -> LOGGER.warn("Skipping GOSUB at %x due to unknowable parameter%n", this.state.headerOffset()));
 
         case GOSUB_TABLE -> op.params[1].resolvedValue.ifPresentOrElse(tableOffset -> {
           if(op.params[1].type.isInlineTable()) {
@@ -221,7 +223,7 @@ public class Disassembler {
           } else {
             this.probeTableOfBranches(script, script.subs, tableOffset);
           }
-        }, () -> System.out.printf("Skipping GOSUB_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
+        }, () -> LOGGER.warn("Skipping GOSUB_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
 
         case REWIND, RETURN, DEALLOCATE, DEALLOCATE82, CONSUME -> {
           break outer;
@@ -233,7 +235,7 @@ public class Disassembler {
         case FORK -> op.params[0].resolvedValue.ifPresentOrElse(offset1 -> {
           script.reentries.add(offset1);
           this.probeBranch(script, offset1);
-        }, () -> System.out.printf("Skipping FORK at %x due to unknowable parameter%n", this.state.headerOffset()));
+        }, () -> LOGGER.warn("Skipping FORK at %x due to unknowable parameter%n", this.state.headerOffset()));
       }
     }
 
@@ -376,7 +378,7 @@ public class Disassembler {
         buildStrings.add(() -> {
           //IMPORTANT: we need to remove any extra elements that were truncated by the table overrun detector
           while(destinations.size() > table.labels.length) {
-            destinations.remove(destinations.size() - 1);
+            destinations.removeLast();
           }
 
           destinations.sort(Integer::compareTo);

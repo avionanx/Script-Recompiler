@@ -133,7 +133,7 @@ public final class Shell {
       }
 
       default -> {
-        System.out.println("Commands: [v]ersions, [d]ecompile, [c]ompile");
+        LOGGER.info("Commands: [v]ersions, [d]ecompile, [c]ompile, [g]enpatch, [a]pplypatch");
         System.exit(1);
       }
     }

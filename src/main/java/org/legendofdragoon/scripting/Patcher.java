@@ -14,7 +14,10 @@ public class Patcher {
   public static String generatePatch(final Path originalFile, final Path modifiedFile) throws IOException {
     final List<String> originalLines = Files.readAllLines(originalFile);
     final List<String> modifiedLines = Files.readAllLines(modifiedFile);
+    return generatePatch(originalLines, modifiedLines);
+  }
 
+  public static String generatePatch(final List<String> originalLines, final List<String> modifiedLines) {
     final Patch<String> patch = DiffUtils.diff(originalLines, modifiedLines);
     final List<String> diff = UnifiedDiffUtils.generateUnifiedDiff("original", "modified", originalLines, patch, 0);
     final StringBuilder output = new StringBuilder();
@@ -29,7 +32,10 @@ public class Patcher {
   public static String applyPatch(final Path originalFile, final Path patchFile) throws IOException, PatchFailedException {
     final List<String> originalLines = Files.readAllLines(originalFile);
     final List<String> patchLines = Files.readAllLines(patchFile);
+    return applyPatch(originalLines, patchLines);
+  }
 
+  public static String applyPatch(final List<String> originalLines, final List<String> patchLines) throws PatchFailedException {
     final Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchLines);
     final List<String> patched = DiffUtils.patch(originalLines, patch);
     final StringBuilder output = new StringBuilder();
