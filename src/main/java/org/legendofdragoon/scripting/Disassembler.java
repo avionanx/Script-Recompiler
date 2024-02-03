@@ -91,7 +91,7 @@ public class Disassembler {
       return;
     }
 
-    LOGGER.info(DISASSEMBLY, "Probing branch %x%n", offset);
+    LOGGER.info(DISASSEMBLY, "Probing branch %x", offset);
     script.branches.add(offset);
 
     final int oldHeaderOffset = this.state.headerOffset();
@@ -174,13 +174,13 @@ public class Disassembler {
                 }
 
                 this.probeBranch(script, offset1);
-              }, () -> LOGGER.warn("Skipping CALL at %x due to unknowable parameter%n", this.state.headerOffset()));
+              }, () -> LOGGER.warn("Skipping CALL at %x due to unknowable parameter", this.state.headerOffset()));
             }
           }
         }
 
         case JMP -> {
-          op.params[0].resolvedValue.ifPresentOrElse(offset1 -> this.probeBranch(script, offset1), () -> LOGGER.warn("Skipping JUMP at %x due to unknowable parameter%n", this.state.headerOffset()));
+          op.params[0].resolvedValue.ifPresentOrElse(offset1 -> this.probeBranch(script, offset1), () -> LOGGER.warn("Skipping JUMP at %x due to unknowable parameter", this.state.headerOffset()));
 
           if(op.params[0].resolvedValue.isPresent()) {
             break outer;
@@ -192,7 +192,7 @@ public class Disassembler {
             this.probeBranch(script, this.state.currentOffset());
             this.probeBranch(script, addr);
           }, () ->
-            LOGGER.warn("Skipping %s at %x due to unknowable parameter%n", op.type, this.state.headerOffset())
+            LOGGER.warn("Skipping %s at %x due to unknowable parameter", op.type, this.state.headerOffset())
           );
 
           // Jumps are terminal
@@ -206,7 +206,7 @@ public class Disassembler {
             } else {
               this.probeTableOfBranches(script, script.jumpTableDests, tableOffset);
             }
-          }, () -> LOGGER.warn("Skipping JMP_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
+          }, () -> LOGGER.warn("Skipping JMP_TABLE at %x due to unknowable parameter", this.state.headerOffset()));
 
           // Jumps are terminal
           break outer;
@@ -215,7 +215,7 @@ public class Disassembler {
         case GOSUB -> op.params[0].resolvedValue.ifPresentOrElse(offset1 -> {
           script.subs.add(offset1);
           this.probeBranch(script, offset1);
-        }, () -> LOGGER.warn("Skipping GOSUB at %x due to unknowable parameter%n", this.state.headerOffset()));
+        }, () -> LOGGER.warn("Skipping GOSUB at %x due to unknowable parameter", this.state.headerOffset()));
 
         case GOSUB_TABLE -> op.params[1].resolvedValue.ifPresentOrElse(tableOffset -> {
           if(op.params[1].type.isInlineTable()) {
@@ -223,19 +223,19 @@ public class Disassembler {
           } else {
             this.probeTableOfBranches(script, script.subs, tableOffset);
           }
-        }, () -> LOGGER.warn("Skipping GOSUB_TABLE at %x due to unknowable parameter%n", this.state.headerOffset()));
+        }, () -> LOGGER.warn("Skipping GOSUB_TABLE at %x due to unknowable parameter", this.state.headerOffset()));
 
         case REWIND, RETURN, DEALLOCATE, DEALLOCATE82, CONSUME -> {
           break outer;
         }
 
         // Don't need to handle re-entry because we're already probing all entry points
-        // case FORK_REENTER -> System.err.printf("Unhandled FORK_REENTER @ %x%n", this.state.headerOffset());
+        // case FORK_REENTER -> System.err.printf("Unhandled FORK_REENTER @ %x", this.state.headerOffset());
 
         case FORK -> op.params[0].resolvedValue.ifPresentOrElse(offset1 -> {
           script.reentries.add(offset1);
           this.probeBranch(script, offset1);
-        }, () -> LOGGER.warn("Skipping FORK at %x due to unknowable parameter%n", this.state.headerOffset()));
+        }, () -> LOGGER.warn("Skipping FORK at %x due to unknowable parameter", this.state.headerOffset()));
       }
     }
 
