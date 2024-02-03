@@ -5,7 +5,7 @@ public enum OpType {
   REWIND(1, "rewind"),
   WAIT(2, "wait", new String[] {"frames"}),
   WAIT_CMP(3, "wait_cmp", "operator", new String[] {"left", "right"}),
-  WAIT_CMP_0(4, "wait_cmp", "operator", new String[] {"left", "right"}),
+  WAIT_CMP_0(4, "wait_cmp", "operator", new String[] {"right"}),
   REWIND5(5, "rewind"),
   REWIND6(6, "rewind"),
   REWIND7(7, "rewind"),
@@ -13,7 +13,7 @@ public enum OpType {
   SWAP_BROKEN(9, "swap_broken", new String[] {"sourceDest", "dest"}),
   MEMCPY(10, "memcpy", new String[] {"size", "src", "dest"}),
   REWIND11(11, "rewind"),
-  MOV_0(12, "mov", new String[] {"source", "dest"}),
+  MOV_0(12, "mov", new String[] {"dest"}),
   REWIND13(13, "rewind"),
   REWIND14(14, "rewind"),
   REWIND15(15, "rewind"),
@@ -49,7 +49,7 @@ public enum OpType {
   CALL(56, "call", "index"),
   JMP(64, "jmp", new String[] {"addr"}),
   JMP_CMP(65, "jmp_cmp", "operand", new String[] {"left", "right", "addr"}),
-  JMP_CMP_0(66, "jmp_cmp", "operand", new String[] {"left", "right", "addr"}),
+  JMP_CMP_0(66, "jmp_cmp", "operand", new String[] {"right", "addr"}),
   WHILE(67, "while", new String[] {"counter", "addr"}),
   JMP_TABLE(68, "jmp_table", new String[] {"index", "table"}),
   GOSUB(72, "gosub", new String[] {"addr"}),
@@ -66,6 +66,12 @@ public enum OpType {
   NOOP_98(98, "noop"),
   DEPTH(99, "depth", new String[] {"dest"}),
   ;
+
+  static {
+    WAIT_CMP_0.setCommentParamNames(new String[] {"left", "right"});
+    MOV_0.setCommentParamNames(new String[] {"source", "dest"});
+    JMP_CMP_0.setCommentParamNames(new String[] {"left", "right", "addr"});
+  }
 
   public static OpType byOpcode(final int opcode) {
     for(final OpType op : OpType.values()) {
@@ -91,12 +97,14 @@ public enum OpType {
   public final String name;
   public final String headerParamName;
   public final String[] paramNames;
+  private String[] commentParamNames;
 
   OpType(final int opcode, final String name, final String headerParamName, final String[] paramNames) {
     this.opcode = opcode;
     this.name = name;
     this.paramNames = paramNames;
     this.headerParamName = headerParamName;
+    this.commentParamNames = this.paramNames;
   }
 
   OpType(final int opcode, final String name, final String headerParamName) {
@@ -104,6 +112,7 @@ public enum OpType {
     this.name = name;
     this.paramNames = new String[0];
     this.headerParamName = headerParamName;
+    this.commentParamNames = this.paramNames;
   }
 
   OpType(final int opcode, final String name, final String[] paramNames) {
@@ -111,6 +120,7 @@ public enum OpType {
     this.name = name;
     this.paramNames = paramNames;
     this.headerParamName = null;
+    this.commentParamNames = this.paramNames;
   }
 
   OpType(final int opcode, final String name) {
@@ -118,5 +128,14 @@ public enum OpType {
     this.name = name;
     this.paramNames = new String[0];
     this.headerParamName = null;
+    this.commentParamNames = this.paramNames;
+  }
+
+  private void setCommentParamNames(final String[] paramNames) {
+    this.commentParamNames = paramNames;
+  }
+
+  public String[] getCommentParamNames() {
+    return this.commentParamNames;
   }
 }

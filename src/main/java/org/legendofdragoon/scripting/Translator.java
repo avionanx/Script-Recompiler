@@ -127,7 +127,7 @@ public class Translator {
             }
           }
 
-          builder.append(String.join(", ", op.type.paramNames));
+          builder.append(String.join(", ", op.type.getCommentParamNames()));
         }
 
         builder.append('\n');
