@@ -99,11 +99,11 @@ public class Translator {
         }
 
         if(op.type == OpType.WAIT_CMP_0 || op.type == OpType.JMP_CMP_0) {
-          builder.append(", 0");
+          builder.append(", 0x0");
         }
 
         if(op.type == OpType.MOV_0) {
-          builder.append(" 0,");
+          builder.append(" 0x0,");
         }
 
         for(int paramIndex = 0; paramIndex < op.params.length; paramIndex++) {
