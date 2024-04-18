@@ -47,7 +47,7 @@ public class Translator {
       if(entry instanceof final Entrypoint entrypoint) {
         builder.append("entrypoint :").append(entrypoint.destination).append('\n');
       } else if(entry instanceof final Data data) {
-        builder.append("data 0x%x".formatted(data.value)).append('\n');
+        builder/*.append(Integer.toHexString(data.address)).append(": ")*/.append("data 0x%x".formatted(data.value)).append('\n');
       } else if(entry instanceof final PointerTable rel) {
         if(rel.labels.length == 0) {
           throw new RuntimeException("Empty jump table %x".formatted(rel.address));

@@ -82,6 +82,10 @@ public final class Shell {
     options.addRequiredOption("i", "in", true, "The input file");
     options.addRequiredOption("o", "out", true, "The output file");
 
+    if("d".equals(args[0]) || "decompile".equals(args[0])) {
+      options.addOption("b", "branch", true, "Force the decompiler to decompile this branch");
+    }
+
     final CommandLine cmd;
     final CommandLineParser parser = new DefaultParser();
     final HelpFormatter helper = new HelpFormatter();
@@ -111,13 +115,25 @@ public final class Shell {
 
     switch(args[0]) {
       case "d", "decompile" -> {
+        final int[] branches;
+        final String[] branchesIn = cmd.getOptionValues("branch");
+
+        if(branchesIn == null) {
+          branches = new int[0];
+        } else {
+          branches = new int[branchesIn.length];
+          for(int i = 0; i < branchesIn.length; i++) {
+            branches[i] = Integer.parseInt(branchesIn[i], 16);
+          }
+        }
+
         LOGGER.info("Decompiling %s...", inputFile);
 
         final Disassembler disassembler = new Disassembler(meta);
         final Translator translator = new Translator();
 
         final byte[] bytes = Files.readAllBytes(inputFile);
-        final Script script = disassembler.disassemble(bytes);
+        final Script script = disassembler.disassemble(bytes, branches);
         final String decompiledOutput = translator.translate(script, meta);
 
         Files.createDirectories(outputFile.getParent());

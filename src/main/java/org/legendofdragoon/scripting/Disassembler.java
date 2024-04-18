@@ -35,7 +35,7 @@ public class Disassembler {
     this.meta = meta;
   }
 
-  public Script disassemble(final byte[] bytes) {
+  public Script disassemble(final byte[] bytes, final int[] extraBranches) {
     this.state = new State(bytes);
 
     final Script script = new Script(this.state.length() / 4);
@@ -73,6 +73,10 @@ public class Disassembler {
           entryIndex++;
         }
       }
+    }
+
+    for(final int extraBranch : extraBranches) {
+      this.probeBranch(script, extraBranch);
     }
 
     script.buildStrings.forEach(Runnable::run);
@@ -159,10 +163,10 @@ public class Disassembler {
           final Meta.ScriptMethod method = this.meta.methods[op.headerParam];
 
           if(this.meta.methods[op.headerParam].params.length != op.params.length) {
-            throw new RuntimeException("CALL " + op.headerParam + " (" + this.meta.methods[op.headerParam] + ") has wrong number of args! " + method.params.length + '/' + op.params.length);
+//            throw new RuntimeException("CALL " + op.headerParam + " (" + this.meta.methods[op.headerParam] + ") has wrong number of args! " + method.params.length + '/' + op.params.length);
           }
 
-          for(int i = 0; i < op.params.length; i++) {
+          for(int i = 0; i < this.meta.methods[op.headerParam].params.length; i++) {
             final Meta.ScriptParam param = method.params[i];
 
             if(!"none".equalsIgnoreCase(param.branch)) {
