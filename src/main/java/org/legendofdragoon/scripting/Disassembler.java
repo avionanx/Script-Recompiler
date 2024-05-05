@@ -236,7 +236,7 @@ public class Disassembler {
         // Don't need to handle re-entry because we're already probing all entry points
         // case FORK_REENTER -> System.err.printf("Unhandled FORK_REENTER @ %x", this.state.headerOffset());
 
-        case FORK -> op.params[0].resolvedValue.ifPresentOrElse(offset1 -> {
+        case FORK -> op.params[1].resolvedValue.ifPresentOrElse(offset1 -> {
           script.reentries.add(offset1);
           this.probeBranch(script, offset1);
         }, () -> LOGGER.warn("Skipping FORK at %x due to unknowable parameter", this.state.headerOffset()));
