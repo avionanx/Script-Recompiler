@@ -47,7 +47,7 @@ public class Compiler {
         out[entryIndex] = op.type.opcode | op.params.length << 8 | op.headerParam << 16;
 
         for(final Param param : op.params) {
-          for(int i = 0; i < param.type.width; i++) {
+          for(int i = 0; i < param.type.getWidth(param); i++) {
             out[++entryIndex] = param.rawValues[i];
           }
         }

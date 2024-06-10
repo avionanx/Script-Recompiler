@@ -199,6 +199,18 @@ public class Translator {
       case _15 -> throw new RuntimeException("Param type 0x15 not yet supported");
       case _16 -> throw new RuntimeException("Param type 0x16 not yet supported");
       case INLINE_TABLE_4 -> "inl[0x%1$x[0x%1$x[%2$d] + %3$d]]".formatted(op.address, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
+
+      case REG -> "reg[%d]".formatted(param.rawValues[0] & 0xff);
+      case ID -> {
+        final char[] chars = new char[param.rawValues[0] >>> 16 & 0xff];
+        for(int i = 0; i < chars.length; i++) {
+          chars[i] = (char)(param.rawValues[1 + i / 4] >>> i % 4 * 8 & 0xff);
+        }
+
+        final String id = new String(chars);
+
+        yield "id[" + id + ']';
+      }
     };
   }
 

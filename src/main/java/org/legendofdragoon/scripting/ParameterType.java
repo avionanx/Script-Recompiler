@@ -1,5 +1,9 @@
 package org.legendofdragoon.scripting;
 
+import org.legendofdragoon.scripting.tokens.Param;
+
+import java.util.function.ToIntFunction;
+
 public enum ParameterType {
   IMMEDIATE(0x0, 1),
   NEXT_IMMEDIATE(0x1, 2),
@@ -25,6 +29,8 @@ public enum ParameterType {
   _15(0x15, 1),
   _16(0x16, 1),
   INLINE_TABLE_4(0x17, 2),
+  REG(0x20, 1),
+  ID(0x21, param -> 1 + (param.length() + 3) / 4, param -> 1 + ((param.rawValues[0] >>> 16 & 0xff) + 3) / 4, state -> 1 + (state.param2() + 3) / 4)
   ;
 
   public static ParameterType byOpcode(final int opcode) {
@@ -38,11 +44,31 @@ public enum ParameterType {
   }
 
   public final int opcode;
-  public final int width;
+  private final ToIntFunction<String> stringToWidth;
+  private final ToIntFunction<Param> paramToWidth;
+  private final ToIntFunction<State> stateToWidth;
+
+  ParameterType(final int opcode, final ToIntFunction<String> stringToWidth, final ToIntFunction<Param> paramToWidth, final ToIntFunction<State> stateToWidth) {
+    this.opcode = opcode;
+    this.stringToWidth = stringToWidth;
+    this.paramToWidth = paramToWidth;
+    this.stateToWidth = stateToWidth;
+  }
 
   ParameterType(final int opcode, final int width) {
-    this.opcode = opcode;
-    this.width = width;
+    this(opcode, param -> width, param -> width, state -> width);
+  }
+
+  public int getWidth(final String param) {
+    return this.stringToWidth.applyAsInt(param);
+  }
+
+  public int getWidth(final Param param) {
+    return this.paramToWidth.applyAsInt(param);
+  }
+
+  public int getWidth(final State state) {
+    return this.stateToWidth.applyAsInt(state);
   }
 
   /** table[index] */

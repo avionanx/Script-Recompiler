@@ -122,8 +122,8 @@ public class Disassembler {
       for(int i = 0; i < op.params.length; i++) {
         final ParameterType paramType = ParameterType.byOpcode(this.state.paramType());
 
-        final int[] rawValues = new int[paramType.width];
-        for(int n = 0; n < paramType.width; n++) {
+        final int[] rawValues = new int[paramType.getWidth(this.state)];
+        for(int n = 0; n < paramType.getWidth(this.state); n++) {
           rawValues[n] = this.state.wordAt(this.state.currentOffset() + n * 0x4);
         }
 
@@ -131,7 +131,7 @@ public class Disassembler {
         final OptionalInt resolved = this.parseParamValue(this.state, paramType);
         final Param param = new Param(paramOffset, paramType, rawValues, resolved, paramType.isInline() && resolved.isPresent() ? script.addLabel(resolved.getAsInt(), "LABEL_" + script.getLabelCount()) : null);
 
-        for(int n = 0; n < paramType.width; n++) {
+        for(int n = 0; n < paramType.getWidth(param); n++) {
           script.entries[entryOffset++] = param;
         }
 
@@ -521,7 +521,7 @@ public class Disassembler {
           certainty += 1;
         }
 
-        address += parameterType.width * 0x4;
+        address += parameterType.getWidth((String)null) * 0x4; //TODO
       }
     }
 
@@ -541,7 +541,7 @@ public class Disassembler {
       default -> OptionalInt.empty();
     };
 
-    this.state.advance(param.width);
+    this.state.advance(param.getWidth(state));
     return value;
   }
 }

@@ -53,6 +53,9 @@ public class Lexer {
 
   public static final Pattern INLINE_6_PATTERN = Pattern.compile("^inl\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?inl\\s*?\\[(" + NUMBER_SUBPATTERN + "|:\\w+)\\s*?\\+\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]\\s*?]$", Pattern.CASE_INSENSITIVE);
 
+  public static final Pattern REG_PATTERN = Pattern.compile("^reg\\s*?\\[\\s*?(" + NUMBER_SUBPATTERN + ")\\s*?]$", Pattern.CASE_INSENSITIVE);
+  public static final Pattern ID_PATTERN = Pattern.compile("^id\\s*?\\[\\s*?(.*?:.*?)\\s*?]$", Pattern.CASE_INSENSITIVE);
+
   private final Meta meta;
 
   public Lexer(final Meta meta) {
@@ -88,7 +91,7 @@ public class Lexer {
             tables.add(param.label);
           }
 
-          for(int i = 0; i < param.type.width; i++) {
+          for(int i = 0; i < param.type.getWidth(param); i++) {
             entries.add(param);
           }
         }
@@ -249,7 +252,7 @@ public class Lexer {
 
       // If we have a header param, the first param returns will be a pseudo-param that doesn't advance the address since it's part of the header
       if(i != 0 || opType.headerParamName == null) {
-        address += param.type.width * 0x4;
+        address += param.type.getWidth(paramStrings[i]) * 0x4;
       } else {
         headerParam = param.rawValues[0];
       }
@@ -261,11 +264,17 @@ public class Lexer {
   private Param parseParam(final int opAddress, final int address, final OpType opType, final int headerParam, final int paramIndex, String paramString) {
     // Convert call function refs to ints
     if(CALL_PATTERN.matcher(paramString).matches()) {
+      boolean found = false;
       for(int i = 0; i < this.meta.methods.length; i++) {
         if(this.meta.methods[i].name.equalsIgnoreCase(paramString)) {
           paramString = Integer.toString(i);
+          found = true;
           break;
         }
+      }
+
+      if(!found) {
+        throw new UnknownCallException("Unknown call " + paramString);
       }
     }
 
@@ -471,6 +480,23 @@ public class Lexer {
     // _16
     // INLINE_7
 
+    if((matcher = ID_PATTERN.matcher(paramString)).matches()) {
+      final String id = matcher.group(1);
+      final int[] packed = new int[ParameterType.ID.getWidth(id)];
+      packed[0] = ParameterType.ID.opcode << 24 | id.length() << 16;
+
+      for(int i = 0; i < id.length(); i++) {
+        packed[1 + i / 4] |= (id.charAt(i) & 0xff) << i % 4 * 8;
+      }
+
+      return new Param(address, ParameterType.ID, packed, OptionalInt.empty(), null);
+    }
+
+    if((matcher = REG_PATTERN.matcher(paramString)).matches()) {
+      final int p0 = this.parseInt(matcher.group(1));
+      return new Param(address, ParameterType.REG, new int[] { this.packParam(ParameterType.REG, p0) }, OptionalInt.empty(), null);
+    }
+
     throw new RuntimeException("Unknown param " + paramString);
   }
 
@@ -524,7 +550,7 @@ public class Lexer {
   }
 
   private int packParam(final ParameterType type, final int p0, final int p1, final int p2) {
-    return type.ordinal() << 24 | (p2 & 0xff) << 16 | (p1 & 0xff) << 8 | p0 & 0xff;
+    return type.opcode << 24 | (p2 & 0xff) << 16 | (p1 & 0xff) << 8 | p0 & 0xff;
   }
 
   private int packParam(final ParameterType type, final int p0, final int p1) {
