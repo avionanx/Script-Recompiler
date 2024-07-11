@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
 public class Lexer {
   public static final String NUMBER_SUBPATTERN = "0x[a-f\\d]{1,8}|\\d{1,10}";
   public static final Pattern LINE_PATTERN = Pattern.compile("^\\s*?(?:[a-f0-9]+\\s+)?([a-z]\\w*?)(?:\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
-  public static final Pattern NUMBER_PATTERN = Pattern.compile("^(?:" + NUMBER_SUBPATTERN + ")$", Pattern.CASE_INSENSITIVE);
+  public static final Pattern NUMBER_PATTERN = Pattern.compile("^-?(?:" + NUMBER_SUBPATTERN + ")$", Pattern.CASE_INSENSITIVE);
   public static final Pattern LABEL_PATTERN = Pattern.compile("^(\\w+):$", Pattern.CASE_INSENSITIVE);
   public static final Pattern LABEL_PARAM_PATTERN = Pattern.compile("^:(\\w+)$", Pattern.CASE_INSENSITIVE);
   public static final Pattern CALL_PATTERN = Pattern.compile("^[a-z_]\\w*::[a-z_]\\w*$", Pattern.CASE_INSENSITIVE);
