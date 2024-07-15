@@ -61,9 +61,9 @@ public enum OpType {
   FORK(86, "fork", new String[] {"index", "addr", "p2"}),
   FORK_REENTER(87, "fork_reenter", new String[] {"index", "entrypoint", "p2"}),
   CONSUME(88, "consume"),
-  NOOP_96(96, "noop", "?", new String[] {"?", "?"}),
-  NOOP_97(97, "noop"),
-  NOOP_98(98, "noop"),
+  NOOP_96(96, "debug96", "?", new String[] {"?", "?"}),
+  NOOP_97(97, "debug97"),
+  NOOP_98(98, "debug98", new String[] {"?"}),
   DEPTH(99, "depth", new String[] {"dest"}),
   ;
 
