@@ -67,6 +67,7 @@ public class Disassembler {
             }
 
             rel.labels = Arrays.copyOfRange(rel.labels, 0, labelIndex);
+            entryIndex--; // Backtrack so we can process the data we collided with
             break;
           }
 
