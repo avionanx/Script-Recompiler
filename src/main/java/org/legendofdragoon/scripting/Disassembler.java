@@ -473,6 +473,10 @@ public class Disassembler {
   }
 
   private Op parseHeader(final int offset) {
+    if(offset > this.state.length() - 4) {
+      return null;
+    }
+
     final int opcode = this.state.wordAt(offset);
     final OpType type = OpType.byOpcode(opcode & 0xff);
 
