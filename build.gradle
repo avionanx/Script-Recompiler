@@ -24,6 +24,7 @@ dependencies {
   implementation group: 'com.opencsv', name: 'opencsv', version: '5.9'
   implementation group: 'commons-cli', name: 'commons-cli', version: '1.6.0'
   implementation group: 'io.github.java-diff-utils', name: 'java-diff-utils', version: '4.12'
+  implementation 'org.jetbrains:annotations:20.1.0'
 }
 
 tasks.register('sourceJar', Jar) {

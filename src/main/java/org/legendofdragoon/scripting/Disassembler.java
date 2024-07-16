@@ -442,7 +442,7 @@ public class Disassembler {
     }
   }
 
-  private void getEntrypoints(final Script script) {
+  private void getEntrypoints(final Script script) throws IndexOutOfBoundsException{
     for(int i = 0; i < 0x20; i++) { // Most have 0x10, some have less, player_combat_script is the only one I've seen with 0x20
       final int entrypoint = this.state.currentWord();
 
