@@ -536,7 +536,7 @@ public class Disassembler {
       address += 0x4;
 
       for(int paramIndex = 0; paramIndex < op.type.paramNames.length; paramIndex++) {
-        final ParameterType parameterType = ParameterType.byOpcode(this.state.wordAt(address));
+        final ParameterType parameterType = ParameterType.byOpcode(this.state.wordAt(address) >>> 24);
 
         if(parameterType != ParameterType.IMMEDIATE) {
           certainty += 1;
