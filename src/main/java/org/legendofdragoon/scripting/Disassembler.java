@@ -54,7 +54,10 @@ public class Disassembler {
 
         for(int labelIndex = 1; labelIndex < rel.labels.length; labelIndex++) {
           // If this table overruns something else, bail out
-          if(script.entries[entryIndex] != null && !(script.entries[entryIndex] instanceof Data)) {
+          if(
+            script.entries[entryIndex] != null && !(script.entries[entryIndex] instanceof Data) ||
+            script.labels.containsKey(entryIndex * 4) // If something else points to data here, the table must have ended
+          ) {
             LOGGER.warn("Jump table overrun at %x", entry.address);
 
             for(int toRemove = labelIndex; toRemove < rel.labels.length; toRemove++) {
