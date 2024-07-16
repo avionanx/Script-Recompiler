@@ -139,7 +139,7 @@ public class Disassembler {
           script.entries[entryOffset++] = param;
         }
 
-        if(param.resolvedValue.orElse(0) < script.entries.length * 4) {
+        if(!paramType.isInline() || resolved.orElse(0) < script.entries.length * 4) {
           op.params[i] = param;
         } else {
           LOGGER.warn("Pointer at 0x%x destination is past the end of the script, replacing with 0", paramOffset);
