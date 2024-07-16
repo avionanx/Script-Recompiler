@@ -222,10 +222,12 @@ public class Disassembler {
 
         case JMP_TABLE -> {
           op.params[1].resolvedValue.ifPresentOrElse(tableOffset -> {
-            if(op.params[1].type.isInlineTable()) {
-              this.probeTableOfTables(script, script.jumpTableDests, tableOffset);
-            } else {
-              this.probeTableOfBranches(script, script.jumpTableDests, tableOffset);
+            if(tableOffset != 0) { // Table out of bounds gets replaced with 0 above
+              if(op.params[1].type.isInlineTable()) {
+                this.probeTableOfTables(script, script.jumpTableDests, tableOffset);
+              } else {
+                this.probeTableOfBranches(script, script.jumpTableDests, tableOffset);
+              }
             }
           }, () -> LOGGER.warn("Skipping JMP_TABLE at %x due to unknowable parameter", this.state.headerOffset()));
 
@@ -239,10 +241,12 @@ public class Disassembler {
         }, () -> LOGGER.warn("Skipping GOSUB at %x due to unknowable parameter", this.state.headerOffset()));
 
         case GOSUB_TABLE -> op.params[1].resolvedValue.ifPresentOrElse(tableOffset -> {
-          if(op.params[1].type.isInlineTable()) {
-            this.probeTableOfTables(script, script.subs, tableOffset);
-          } else {
-            this.probeTableOfBranches(script, script.subs, tableOffset);
+          if(tableOffset != 0) { // Table out of bounds gets replaced with 0 above
+            if(op.params[1].type.isInlineTable()) {
+              this.probeTableOfTables(script, script.subs, tableOffset);
+            } else {
+              this.probeTableOfBranches(script, script.subs, tableOffset);
+            }
           }
         }, () -> LOGGER.warn("Skipping GOSUB_TABLE at %x due to unknowable parameter", this.state.headerOffset()));
 
