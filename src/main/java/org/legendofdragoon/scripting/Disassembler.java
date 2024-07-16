@@ -474,6 +474,10 @@ public class Disassembler {
   }
 
   private Op parseHeader(final int offset) {
+    if(offset > this.state.length() - 4) {
+      return null;
+    }
+
     final int opcode = this.state.wordAt(offset);
     final OpType type = OpType.byOpcode(opcode & 0xff);
 
@@ -537,7 +541,7 @@ public class Disassembler {
       address += 0x4;
 
       for(int paramIndex = 0; paramIndex < op.type.paramNames.length; paramIndex++) {
-        final ParameterType parameterType = ParameterType.byOpcode(this.state.wordAt(address));
+        final ParameterType parameterType = ParameterType.byOpcode(this.state.wordAt(address) >>> 24);
 
         if(parameterType != ParameterType.IMMEDIATE) {
           certainty += 1;
