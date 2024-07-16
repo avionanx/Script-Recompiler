@@ -1,5 +1,7 @@
 package org.legendofdragoon.scripting;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.legendofdragoon.scripting.tokens.Data;
 import org.legendofdragoon.scripting.tokens.Entry;
 import org.legendofdragoon.scripting.tokens.Entrypoint;
@@ -10,6 +12,8 @@ import org.legendofdragoon.scripting.tokens.PointerTable;
 import org.legendofdragoon.scripting.tokens.Script;
 
 public class Compiler {
+  private static final Logger LOGGER = LogManager.getFormatterLogger(Compiler.class);
+
   public int[] compile(final Script script) {
     final int[] out = new int[script.entries.length];
 
@@ -34,7 +38,9 @@ public class Compiler {
         entryIndex--; // Loop will account for one increment
       } else if(entry instanceof final PointerTable rel) {
         if(rel.labels.length == 0) {
-          throw new RuntimeException("Empty pointer table at 0x%x".formatted(rel.address));
+//          throw new RuntimeException("Empty pointer table at 0x%x".formatted(rel.address));
+          LOGGER.warn("Empty pointer table at 0x%x", rel.address);
+          continue;
         }
 
         for(final String label : rel.labels) {
