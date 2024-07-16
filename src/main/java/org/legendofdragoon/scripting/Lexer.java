@@ -82,12 +82,12 @@ public class Lexer {
       entries.add(entry);
 
       if(entry instanceof final Op op) {
-        if(op.type == OpType.GOSUB_TABLE || op.type == OpType.JMP_TABLE) {
+        if(op.type == OpType.GOSUB_TABLE || op.type == OpType.JMP_TABLE && op.params[1].label != null) {
           tables.add(op.params[1].label);
         }
 
         for(final Param param : op.params) {
-          if(param.type.isInlineTable()) {
+          if(param.type.isInlineTable() && param.label != null) {
             tables.add(param.label);
           }
 
