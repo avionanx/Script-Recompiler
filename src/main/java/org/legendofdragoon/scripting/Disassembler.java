@@ -287,7 +287,7 @@ public class Disassembler {
     int latestDestination = 0;
     final List<Integer> destinations = new ArrayList<>();
     final List<String> labels = new ArrayList<>();
-    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null /*&& (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination)*/ && (!this.isProbablyOp(script, entryAddress) || this.isValidOp(tableAddress + this.state.wordAt(entryAddress) * 0x4)); entryAddress += 0x4) {
+    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination) && (!this.isProbablyOp(script, entryAddress) || this.isValidOp(tableAddress + this.state.wordAt(entryAddress) * 0x4)); entryAddress += 0x4) {
       final int destAddress = tableAddress + this.state.wordAt(entryAddress) * 0x4;
 
       if(destAddress < 0x4 || destAddress >= this.state.length() - 0x4) {
@@ -336,7 +336,7 @@ public class Disassembler {
 
     int earliestDestination = this.state.length();
     int latestDestination = 0;
-    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null /*&& (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination)*/; entryAddress += 0x4) {
+    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination); entryAddress += 0x4) {
       int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
 
       if(op.type == OpType.CALL && "string".equalsIgnoreCase(this.meta.methods[op.headerParam].params[paramIndex].type)) {
