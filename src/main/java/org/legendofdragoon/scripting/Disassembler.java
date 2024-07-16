@@ -136,7 +136,13 @@ public class Disassembler {
           script.entries[entryOffset++] = param;
         }
 
-        op.params[i] = param;
+        if(param.resolvedValue.orElse(0) < script.entries.length * 4) {
+          op.params[i] = param;
+        } else {
+          LOGGER.warn("Pointer at 0x%x destination is past the end of the script, replacing with 0", paramOffset);
+          op.params[i] = new Param(paramOffset, ParameterType.IMMEDIATE, new int[] {ParameterType.IMMEDIATE.opcode << 24}, OptionalInt.of(0), null);
+          continue;
+        }
 
         // Handle jump table params
         if(paramType.isInlineTable() && op.type != OpType.GOSUB_TABLE && op.type != OpType.JMP_TABLE) {
@@ -310,7 +316,7 @@ public class Disassembler {
 
   private void handlePointerTable(final Script script, final Op op, final int paramIndex, final int tableAddress, final List<Runnable> buildStrings) {
     if(tableAddress / 4 >= script.entries.length) {
-      LOGGER.warn("Op %s param %d points to invalid pointer table %x", op, paramIndex, tableAddress);
+      LOGGER.warn("Op %s param %d points to invalid pointer table 0x%x", op, paramIndex, tableAddress);
       return;
     }
 
