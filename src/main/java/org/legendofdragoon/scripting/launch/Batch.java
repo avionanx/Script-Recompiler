@@ -53,25 +53,29 @@ public class Batch {
         final String decompPath = Paths.get(args[1]).resolve(relPath) + ".txt";
         try {
           final byte[] bytes = Files.readAllBytes(path);
-          if (bytes.length != 0) {
+          try {
             final Script script = disassembler.disassemble(bytes, new int[]{});
-            final String decompiledOutput = translator.translate(script, meta);
-            Files.createDirectories(Paths.get(args[1]).resolve(relPath).getParent());
-            Files.writeString(Path.of(decompPath), decompiledOutput, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            if (args.length == 3 && !args[2].isEmpty()) {
-              try {
-                final String input = Files.readString(Path.of(decompPath));
-                final Script lexedDecompiledSource = lexer.lex(input);
-                final int[] recompiledSource = compiler.compile(lexedDecompiledSource);
-                Files.createDirectories(Paths.get(args[2]).resolve(relPath).getParent());
-                Files.write(Paths.get(args[2]).resolve(relPath), intsToBytes(recompiledSource), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-                //compiler.compile(decompPath, Paths.get(args[2]).resolve(relPath).toString(), meta);
-              } catch (RuntimeException r) {
-                LOGGER.log(Level.INFO, ERROR_MARKER, decompPath);
-                LOGGER.log(Level.ERROR, ERROR_MARKER, r.getMessage());
+            if (!script.entrypoints.isEmpty()) {
+              final String decompiledOutput = translator.translate(script, meta);
+              Files.createDirectories(Paths.get(args[1]).resolve(relPath).getParent());
+              Files.writeString(Path.of(decompPath), decompiledOutput, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+              if (args.length == 3 && !args[2].isEmpty()) {
+                try {
+                  final String input = Files.readString(Path.of(decompPath));
+                  final Script lexedDecompiledSource = lexer.lex(input);
+                  final int[] recompiledSource = compiler.compile(lexedDecompiledSource);
+                  Files.createDirectories(Paths.get(args[2]).resolve(relPath).getParent());
+                  Files.write(Paths.get(args[2]).resolve(relPath), intsToBytes(recompiledSource), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                  //compiler.compile(decompPath, Paths.get(args[2]).resolve(relPath).toString(), meta);
+                } catch (RuntimeException r) {
+                  LOGGER.log(Level.INFO, ERROR_MARKER, decompPath);
+                  LOGGER.log(Level.ERROR, ERROR_MARKER, r.getMessage());
+                }
               }
             }
-        }
+          } catch (Exception err){
+            LOGGER.warn("Exception at %s".formatted(decompPath));
+          }
         } catch (IOException e) {
           throw new RuntimeException(e);
         }

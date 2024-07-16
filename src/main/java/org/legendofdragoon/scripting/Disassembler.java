@@ -85,7 +85,7 @@ public class Disassembler {
     this.fillStrings(script);
     this.fillData(script);
 
-    LOGGER.info(DISASSEMBLY, "Probing complete");
+    //LOGGER.info(DISASSEMBLY, "Probing complete");
 
     return script;
   }
@@ -96,7 +96,7 @@ public class Disassembler {
       return;
     }
 
-    LOGGER.info(DISASSEMBLY, "Probing branch %x", offset);
+    //LOGGER.info(DISASSEMBLY, "Probing branch %x", offset);
     script.branches.add(offset);
 
     final int oldHeaderOffset = this.state.headerOffset();
@@ -136,7 +136,13 @@ public class Disassembler {
           script.entries[entryOffset++] = param;
         }
 
-        op.params[i] = param;
+        if(param.resolvedValue.orElse(0) < script.entries.length * 4) {
+          op.params[i] = param;
+        } else {
+          LOGGER.warn("Pointer at 0x%x destination is past the end of the script, replacing with 0", paramOffset);
+          op.params[i] = new Param(paramOffset, ParameterType.IMMEDIATE, new int[] {ParameterType.IMMEDIATE.opcode << 24}, OptionalInt.of(0), null);
+          continue;
+        }
 
         // Handle jump table params
         if(paramType.isInlineTable() && op.type != OpType.GOSUB_TABLE && op.type != OpType.JMP_TABLE) {
@@ -274,7 +280,7 @@ public class Disassembler {
     int latestDestination = 0;
     final List<Integer> destinations = new ArrayList<>();
     final List<String> labels = new ArrayList<>();
-    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination) && (!this.isProbablyOp(script, entryAddress) || this.isValidOp(tableAddress + this.state.wordAt(entryAddress) * 0x4)); entryAddress += 0x4) {
+    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null /*&& (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination)*/ && (!this.isProbablyOp(script, entryAddress) || this.isValidOp(tableAddress + this.state.wordAt(entryAddress) * 0x4)); entryAddress += 0x4) {
       final int destAddress = tableAddress + this.state.wordAt(entryAddress) * 0x4;
 
       if(destAddress < 0x4 || destAddress >= this.state.length() - 0x4) {
@@ -310,7 +316,7 @@ public class Disassembler {
 
   private void handlePointerTable(final Script script, final Op op, final int paramIndex, final int tableAddress, final List<Runnable> buildStrings) {
     if(tableAddress / 4 >= script.entries.length) {
-      LOGGER.warn("Op %s param %d points to invalid pointer table %x", op, paramIndex, tableAddress);
+      LOGGER.warn("Op %s param %d points to invalid pointer table 0x%x", op, paramIndex, tableAddress);
       return;
     }
 
@@ -323,7 +329,7 @@ public class Disassembler {
 
     int earliestDestination = this.state.length();
     int latestDestination = 0;
-    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null && (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination); entryAddress += 0x4) {
+    for(int entryAddress = tableAddress; entryAddress <= this.state.length() - 4 && script.entries[entryAddress / 4] == null /*&& (this.state.wordAt(entryAddress) > 0 ? entryAddress < earliestDestination : entryAddress > latestDestination)*/; entryAddress += 0x4) {
       int destination = tableAddress + this.state.wordAt(entryAddress) * 0x4;
 
       if(op.type == OpType.CALL && "string".equalsIgnoreCase(this.meta.methods[op.headerParam].params[paramIndex].type)) {
@@ -442,8 +448,9 @@ public class Disassembler {
     }
   }
 
-  private void getEntrypoints(final Script script) throws IndexOutOfBoundsException{
-    for(int i = 0; i < 0x20; i++) { // Most have 0x10, some have less, player_combat_script is the only one I've seen with 0x20
+
+  private void getEntrypoints(final Script script) {
+    for(int i = 0; i < 0x20 && this.state.hasMore(); i++) { // Most have 0x10, some have less, player_combat_script is the only one I've seen with 0x20
       final int entrypoint = this.state.currentWord();
 
       if(!this.isValidOp(entrypoint)) {

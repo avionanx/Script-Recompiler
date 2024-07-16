@@ -73,6 +73,6 @@ public class State {
   }
 
   public boolean hasMore() {
-    return this.currentOffset < this.script.length;
+    return this.currentOffset / 4 < this.script.length / 4;
   }
 }
