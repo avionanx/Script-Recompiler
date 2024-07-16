@@ -484,6 +484,11 @@ public class Disassembler {
       return null;
     }
 
+    // CALL with function index out of range
+    if(type == OpType.CALL && ((opcode >>> 16) >= 1024)) {
+      return null;
+    }
+
     //TODO once we implement all subfuncs, add their param counts too
     final int paramCount = opcode >> 8 & 0xff;
     if(type != OpType.CALL && type.paramNames.length != paramCount) {
