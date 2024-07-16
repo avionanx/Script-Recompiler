@@ -156,6 +156,13 @@ public class Disassembler {
             final int finalI = i;
             param.resolvedValue.ifPresent(tableAddress -> this.handlePointerTable(script, op, finalI, tableAddress, script.buildStrings));
           }
+        } else if(op.type == OpType.CALL && "string".equalsIgnoreCase(this.meta.methods[op.headerParam].params[i].type)) {
+          // Resolve strings that are pointed to by a non-table inline
+          param.resolvedValue.ifPresent(stringAddress ->
+            script.buildStrings.add(() ->
+              script.strings.add(new StringInfo(stringAddress, -1)) // We don't know the length
+            )
+          );
         }
       }
 
