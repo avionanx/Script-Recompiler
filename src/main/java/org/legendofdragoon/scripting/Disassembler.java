@@ -76,6 +76,8 @@ public class Disassembler {
 
           entryIndex++;
         }
+
+        entryIndex--;
       }
     }
 
@@ -406,13 +408,16 @@ public class Disassembler {
             destinations.removeLast();
           }
 
-          destinations.sort(Integer::compareTo);
+          final List<Integer> sorted = destinations.stream()
+            .distinct()
+            .sorted(Integer::compareTo)
+            .toList();
 
-          for(int i = 0; i < destinations.size(); i++) {
-            if(i < destinations.size() - 1) {
-              script.strings.add(new StringInfo(destinations.get(i), destinations.get(i + 1) - destinations.get(i))); // String length is next string - this string
+          for(int i = 0; i < sorted.size(); i++) {
+            if(i < sorted.size() - 1) {
+              script.strings.add(new StringInfo(sorted.get(i), sorted.get(i + 1) - sorted.get(i))); // String length is next string - this string
             } else {
-              script.strings.add(new StringInfo(destinations.get(i), -1)); // We don't know the length
+              script.strings.add(new StringInfo(sorted.get(i), -1)); // We don't know the length
             }
           }
         });
@@ -442,7 +447,7 @@ public class Disassembler {
 
     final LodString string = new LodString(address, chars.stream().mapToInt(Integer::intValue).toArray());
 
-    for(int i = 0; i < string.chars.length / 2; i++) {
+    for(int i = 0; i < Math.max(1, string.chars.length / 2); i++) {
       script.entries[address / 0x4 + i] = string;
     }
   }
