@@ -76,6 +76,8 @@ public class Disassembler {
 
           entryIndex++;
         }
+
+        entryIndex--;
       }
     }
 
