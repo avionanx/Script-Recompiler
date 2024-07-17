@@ -442,7 +442,7 @@ public class Disassembler {
 
     final LodString string = new LodString(address, chars.stream().mapToInt(Integer::intValue).toArray());
 
-    for(int i = 0; i < string.chars.length / 2; i++) {
+    for(int i = 0; i < Math.max(1, string.chars.length / 2); i++) {
       script.entries[address / 0x4 + i] = string;
     }
   }

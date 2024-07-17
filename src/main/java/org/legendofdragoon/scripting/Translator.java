@@ -60,7 +60,10 @@ public class Translator {
 
         entryIndex--;
       } else if(entry instanceof final LodString string) {
-        final List<Map.Entry<Integer, List<String>>> overlappingLabels = script.labels.entrySet().stream().filter(e -> e.getKey() > string.address && e.getKey() < string.address + string.chars.length / 0x2).sorted(Comparator.comparingInt(Map.Entry::getKey)).toList();
+        final List<Map.Entry<Integer, List<String>>> overlappingLabels = script.labels.entrySet().stream()
+          .filter(e -> e.getKey() > string.address && e.getKey() < string.address + (string.chars.length / 0x2 + 1) * 0x4) // +1 for terminator
+          .sorted(Comparator.comparingInt(Map.Entry::getKey))
+          .toList();
 
         builder.append("data str[");
 
@@ -88,7 +91,7 @@ public class Translator {
         }
 
         builder.append("]\n");
-        entryIndex += string.chars.length / 2;
+        entryIndex += (string.chars.length + 1) / 2;
       } else if(entry instanceof final Op op) {
         builder.append(op.type.name);
 
