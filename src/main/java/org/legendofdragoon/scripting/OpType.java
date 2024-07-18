@@ -20,7 +20,7 @@ public enum OpType {
   AND(16, "and", new String[] {"right", "left"}),
   OR(17, "or", new String[] {"right", "left"}),
   XOR(18, "xor", new String[] {"right", "left"}),
-  ANDOR(19, "andor", new String[] {"right", "left"}),
+  ANDOR(19, "andor", new String[] {"and", "or", "operand"}),
   NOT(20, "not", new String[] {"right", "left"}),
   SHL(21, "shl", new String[] {"right", "left"}),
   SHR(22, "shr", new String[] {"right", "left"}),
