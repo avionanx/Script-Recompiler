@@ -74,7 +74,7 @@ public class Batch {
               }
             }
           } catch (Exception err){
-            LOGGER.warn("Exception at %s".formatted(decompPath));
+            LOGGER.warn("Exception at %s\n%s".formatted(decompPath,err));
           }
         } catch (IOException e) {
           throw new RuntimeException(e);
