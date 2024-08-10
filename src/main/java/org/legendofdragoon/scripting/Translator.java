@@ -23,9 +23,6 @@ public class Translator {
   private static final Logger LOGGER = LogManager.getFormatterLogger();
 
   private final Map<String, String> reindexedLabels = new HashMap<>();
-  public String translate(final Script script, final Meta meta) {
-    return translate(script, meta, false, false);
-  }
 
   public String translate(final Script script, final Meta meta, final boolean stripNames, final boolean stripComments) {
     final StringBuilder builder = new StringBuilder();
@@ -44,18 +41,19 @@ public class Translator {
     for(int entryIndex = 0; entryIndex < script.entries.length; entryIndex++) {
       final Entry entry = script.entries[entryIndex];
       if(!stripComments) {
-        if (script.subs.contains(entry.address)) {
+        if(script.subs.contains(entry.address)) {
           builder.append("\n; SUBROUTINE\n");
         }
 
-        if (script.subTables.contains(entry.address)) {
+        if(script.subTables.contains(entry.address)) {
           builder.append("\n; SUBROUTINE TABLE\n");
         }
 
-        if (script.reentries.contains(entry.address)) {
+        if(script.reentries.contains(entry.address)) {
           builder.append("\n; FORK RE-ENTRY\n");
         }
       }
+
       if(script.labels.containsKey(entry.address)) {
         for(final String label : script.labels.get(entry.address)) {
           builder.append(this.getReindexedLabel(label)).append(":\n");
@@ -145,7 +143,7 @@ public class Translator {
           } else if (op.params.length != 0 || op.type.headerParamName != null) {
             builder.append(" ; ");
 
-            if (op.type.headerParamName != null) {
+            if(op.type.headerParamName != null) {
               builder.append(op.type.headerParamName);
 
               if (op.params.length != 0) {
@@ -156,6 +154,7 @@ public class Translator {
             builder.append(String.join(", ", op.type.getCommentParamNames()));
           }
         }
+
         builder.append('\n');
       } else if(!(entry instanceof Param)) {
         throw new RuntimeException("Unknown entry " + entry.getClass().getSimpleName());
