@@ -24,7 +24,7 @@ public class Translator {
 
   private final Map<String, String> reindexedLabels = new HashMap<>();
 
-  public String translate(final Script script, final Meta meta) {
+  public String translate(final Script script, final Meta meta, final boolean stripNames, final boolean stripComments) {
     final StringBuilder builder = new StringBuilder();
 
     // Sort LABEL_ labels in the order of their destinations
@@ -40,16 +40,18 @@ public class Translator {
 
     for(int entryIndex = 0; entryIndex < script.entries.length; entryIndex++) {
       final Entry entry = script.entries[entryIndex];
-      if(script.subs.contains(entry.address)) {
-        builder.append("\n; SUBROUTINE\n");
-      }
+      if(!stripComments) {
+        if(script.subs.contains(entry.address)) {
+          builder.append("\n; SUBROUTINE\n");
+        }
 
-      if(script.subTables.contains(entry.address)) {
-        builder.append("\n; SUBROUTINE TABLE\n");
-      }
+        if(script.subTables.contains(entry.address)) {
+          builder.append("\n; SUBROUTINE TABLE\n");
+        }
 
-      if(script.reentries.contains(entry.address)) {
-        builder.append("\n; FORK RE-ENTRY\n");
+        if(script.reentries.contains(entry.address)) {
+          builder.append("\n; FORK RE-ENTRY\n");
+        }
       }
 
       if(script.labels.containsKey(entry.address)) {
@@ -110,7 +112,11 @@ public class Translator {
         builder.append(op.type.name);
 
         if(op.type == OpType.CALL) {
-          builder.append(' ').append(meta.methods[op.headerParam].name);
+          if(!stripNames) {
+            builder.append(' ').append(meta.methods[op.headerParam].name);
+          } else {
+            builder.append(' ').append(op.headerParam);
+          }
         } else if(op.type.headerParamName != null) {
           builder.append(' ').append(this.buildHeaderParam(op));
         }
@@ -131,20 +137,22 @@ public class Translator {
           builder.append(' ').append(this.buildParam(meta, op, op.params[paramIndex], paramIndex));
         }
 
-        if(op.type == OpType.CALL && meta.methods[op.headerParam].params.length != 0) {
-          builder.append(" ; ").append(Arrays.stream(meta.methods[op.headerParam].params).map(Object::toString).collect(Collectors.joining(", ")));
-        } else if(op.params.length != 0 || op.type.headerParamName != null) {
-          builder.append(" ; ");
+        if(!stripComments) {
+          if(op.type == OpType.CALL && meta.methods[op.headerParam].params.length != 0) {
+            builder.append(" ; ").append(Arrays.stream(meta.methods[op.headerParam].params).map(Object::toString).collect(Collectors.joining(", ")));
+          } else if (op.params.length != 0 || op.type.headerParamName != null) {
+            builder.append(" ; ");
 
-          if(op.type.headerParamName != null) {
-            builder.append(op.type.headerParamName);
+            if(op.type.headerParamName != null) {
+              builder.append(op.type.headerParamName);
 
-            if(op.params.length != 0) {
-              builder.append(", ");
+              if (op.params.length != 0) {
+                builder.append(", ");
+              }
             }
-          }
 
-          builder.append(String.join(", ", op.type.getCommentParamNames()));
+            builder.append(String.join(", ", op.type.getCommentParamNames()));
+          }
         }
 
         builder.append('\n');
