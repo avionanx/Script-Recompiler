@@ -90,7 +90,7 @@ public class Disassembler {
     this.fillStrings(script);
     this.fillData(script);
 
-    //LOGGER.info(DISASSEMBLY, "Probing complete");
+    LOGGER.info(DISASSEMBLY, "Probing complete");
 
     return script;
   }
@@ -101,7 +101,7 @@ public class Disassembler {
       return;
     }
 
-    //LOGGER.info(DISASSEMBLY, "Probing branch %x", offset);
+    LOGGER.info(DISASSEMBLY, "Probing branch %x", offset);
     script.branches.add(offset);
 
     final int oldHeaderOffset = this.state.headerOffset();

@@ -128,7 +128,7 @@ public class LodString extends Entry {
         case 0x54 -> ']';
         case 0x55 -> ';';
         default -> {
-          //LOGGER.warn("Found invalid character %x", chr);
+          LOGGER.warn("Found invalid character %x", chr);
           yield "<chr=0x%x>".formatted(chr);
         }
       });
