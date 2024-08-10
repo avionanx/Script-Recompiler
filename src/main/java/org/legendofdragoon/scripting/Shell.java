@@ -84,6 +84,8 @@ public final class Shell {
 
     if("d".equals(args[0]) || "decompile".equals(args[0])) {
       options.addOption("b", "branch", true, "Force the decompiler to decompile this branch");
+      options.addOption("C", "no-comments", false, "Make translator not add any comments");
+      options.addOption("N", "no-names", false, "Remove friendly names from engine methods");
     }
 
     final CommandLine cmd;
@@ -117,6 +119,8 @@ public final class Shell {
       case "d", "decompile" -> {
         final int[] branches;
         final String[] branchesIn = cmd.getOptionValues("branch");
+        final boolean stripComments = cmd.hasOption("no-comments");
+        final boolean stripNames = cmd.hasOption("no-names");
 
         if(branchesIn == null) {
           branches = new int[0];
@@ -134,7 +138,7 @@ public final class Shell {
 
         final byte[] bytes = Files.readAllBytes(inputFile);
         final Script script = disassembler.disassemble(bytes, branches);
-        final String decompiledOutput = translator.translate(script, meta);
+        final String decompiledOutput = translator.translate(script, meta, stripNames, stripComments);
 
         Files.createDirectories(outputFile.getParent());
         Files.writeString(outputFile, decompiledOutput, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
