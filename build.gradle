@@ -1,10 +1,11 @@
 plugins {
   id 'java'
   id 'maven-publish'
+  id 'signing'
 }
 
 group 'org.legendofdragoon'
-version '0.4.0'
+version '0.3.0'
 
 ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
 
@@ -23,14 +24,15 @@ dependencies {
   implementation group: 'com.opencsv', name: 'opencsv', version: '5.9'
   implementation group: 'commons-cli', name: 'commons-cli', version: '1.6.0'
   implementation group: 'io.github.java-diff-utils', name: 'java-diff-utils', version: '4.12'
-  implementation 'org.jetbrains:annotations:20.1.0'
 }
 
 tasks.register('sourceJar', Jar) {
   from sourceSets.main.allJava
 }
 
-
+tasks.withType(Sign).configureEach {
+  onlyIf { isReleaseVersion }
+}
 
 java {
   withJavadocJar()
@@ -42,6 +44,18 @@ artifacts {
 }
 
 publishing {
+  repositories {
+    maven {
+      final def releaseRepo = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+      final def snapshotRepo = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      url = isReleaseVersion ? releaseRepo : snapshotRepo
+      credentials {
+        username = project.hasProperty('ossrhUsername') ? ossrhUsername : "Unknown user"
+        password = project.hasProperty('ossrhPassword') ? ossrhPassword : "Unknown password"
+      }
+    }
+  }
+
   publications {
     mavenJava(MavenPublication) {
       artifactId = 'script-recompiler'
@@ -74,7 +88,9 @@ publishing {
   }
 }
 
-
+signing {
+  sign publishing.publications.mavenJava
+}
 
 javadoc {
   if(JavaVersion.current().isJava9Compatible()) {
