@@ -14,6 +14,7 @@ import org.legendofdragoon.scripting.tokens.Script;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -21,8 +22,21 @@ import java.util.stream.Collectors;
 public class Translator {
   private static final Logger LOGGER = LogManager.getFormatterLogger();
 
+  private final Map<String, String> reindexedLabels = new HashMap<>();
+
   public String translate(final Script script, final Meta meta) {
     final StringBuilder builder = new StringBuilder();
+
+    // Sort LABEL_ labels in the order of their destinations
+    final List<String> sortedLabels = script.labels.entrySet().stream()
+      .sorted(Comparator.comparingInt(Map.Entry::getKey))
+      .flatMap(e -> e.getValue().stream())
+      .filter(label -> label.startsWith("LABEL_"))
+      .toList();
+
+    for(int i = 0; i < sortedLabels.size(); i++) {
+      this.reindexedLabels.put(sortedLabels.get(i), "LABEL_" + i);
+    }
 
     for(int entryIndex = 0; entryIndex < script.entries.length; entryIndex++) {
       final Entry entry = script.entries[entryIndex];
@@ -40,7 +54,7 @@ public class Translator {
 
       if(script.labels.containsKey(entry.address)) {
         for(final String label : script.labels.get(entry.address)) {
-          builder.append(label).append(":\n");
+          builder.append(this.getReindexedLabel(label)).append(":\n");
         }
       }
 
@@ -142,6 +156,10 @@ public class Translator {
     return builder.toString();
   }
 
+  private String getReindexedLabel(final String label) {
+    return this.reindexedLabels.getOrDefault(label, label);
+  }
+
   private String buildHeaderParam(final Op op) {
     if(op.type == OpType.WAIT_CMP || op.type == OpType.WAIT_CMP_0 || op.type == OpType.JMP_CMP || op.type == OpType.JMP_CMP_0) {
       return switch(op.headerParam) {
@@ -162,7 +180,7 @@ public class Translator {
 
   private String buildParam(final Meta meta, final Op op, final Param param, final int paramIndex) {
     if(param.label != null) {
-      final String label = ':' + param.label;
+      final String label = ':' + this.getReindexedLabel(param.label);
 
       return switch(param.type) {
         case INLINE_2 -> "inl[%s[stor[%d]]]".formatted(label, param.rawValues[0] >> 16 & 0xff);
@@ -173,7 +191,7 @@ public class Translator {
         case _15 -> throw new RuntimeException("Param type 0x15 not yet supported");
         case _16 -> throw new RuntimeException("Param type 0x16 not yet supported");
         case INLINE_TABLE_4 -> "inl[%1$s[%1$s[%2$d] + %3$d]]".formatted(label, param.rawValues[1] & 0xff, param.rawValues[1] >> 8 & 0xff);
-        default -> "inl[:" + param.label + ']';
+        default -> "inl[" + label + ']';
       };
     }
 
