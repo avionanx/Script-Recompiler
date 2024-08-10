@@ -138,7 +138,7 @@ public class Translator {
         }
 
         if(!stripComments) {
-          if (op.type == OpType.CALL && meta.methods[op.headerParam].params.length != 0) {
+          if(op.type == OpType.CALL && meta.methods[op.headerParam].params.length != 0) {
             builder.append(" ; ").append(Arrays.stream(meta.methods[op.headerParam].params).map(Object::toString).collect(Collectors.joining(", ")));
           } else if (op.params.length != 0 || op.type.headerParamName != null) {
             builder.append(" ; ");
