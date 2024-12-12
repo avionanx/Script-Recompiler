@@ -56,7 +56,7 @@ public class Batch {
           try {
             final Script script = disassembler.disassemble(bytes, new int[]{});
             if (!script.entrypoints.isEmpty()) {
-              final String decompiledOutput = translator.translate(script, meta);
+              final String decompiledOutput = translator.translate(script, meta, false ,false);
               Files.createDirectories(Paths.get(args[1]).resolve(relPath).getParent());
               Files.writeString(Path.of(decompPath), decompiledOutput, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
               if (args.length == 3 && !args[2].isEmpty()) {
