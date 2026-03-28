@@ -38,7 +38,7 @@ public final class Shell {
 
   public static void main(final String[] args) throws IOException, URISyntaxException, CsvException, NoSuchVersionException, PatchFailedException {
     if(args.length == 0) {
-      LOGGER.info("Commands: [v]ersions, [d]ecompile, [c]ompile, [g]enpatch, [a]pplypatch, [u]ndopatch, [s]trip");
+      LOGGER.info("Commands: [v]ersions, [d]ecompile, [c]ompile, [g]enpatch, [a]pplypatch, [u]ndopatch, [s]trip, [b]atch");
       System.exit(1);
       return;
     }
@@ -79,6 +79,12 @@ public final class Shell {
 
     if("s".equals(args[0]) || "strip".equals(args[0])) {
       strip(metaManager, args);
+      System.exit(0);
+      return;
+    }
+
+    if("b".equals(args[0]) || "batch".equals(args[0])) {
+      batch(metaManager, args);
       System.exit(0);
       return;
     }
@@ -367,6 +373,57 @@ public final class Shell {
     final String output = Patcher.strip(meta, inputFile, stripCalls, stripEndOfLineComments, stripFullLineComments, stripBlankLines);
     Files.createDirectories(outputFile.getParent());
     Files.writeString(outputFile, output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+  }
+
+  private static void batch(final MetaManager metaManager, final String[] args) throws IOException, NoSuchVersionException, CsvException {
+    final Options options = new Options();
+    options.addOption("v", "version", true, "The meta version to use");
+    options.addRequiredOption("i", "in", true, "Input directory of scripts");
+    options.addRequiredOption("o", "out", true, "Output directory");
+
+    final CommandLine cmd;
+    final CommandLineParser parser = new DefaultParser();
+    final HelpFormatter helper = new HelpFormatter();
+
+    try {
+      cmd = parser.parse(options, args);
+    } catch(final ParseException e) {
+      LOGGER.error(e.getMessage());
+      helper.printHelp("Usage:", options);
+      System.exit(1);
+      return;
+    }
+
+    final String version = cmd.getOptionValue("version", "snapshot");
+
+    LOGGER.info("Loading meta %s...", version);
+    final Meta meta = metaManager.loadMeta(version);
+
+    final Disassembler disassembler = new Disassembler(meta);
+    final Translator translator = new Translator();
+
+    final Path root = Paths.get(args[2]);
+    Files.walk(root).toList().forEach(path -> {
+      if (path.toFile().isFile()) {
+        final Path relPath = root.relativize(path);
+        final String decompPath = Paths.get(args[4]).resolve(relPath) + ".txt";
+        try {
+          final byte[] bytes = Files.readAllBytes(path);
+          try {
+            final Script script = disassembler.disassemble(bytes);
+            if (!script.entrypoints.isEmpty()) {
+              final String decompiledOutput = translator.translate(script, meta);
+              Files.createDirectories(Paths.get(args[4]).resolve(relPath).getParent());
+              Files.writeString(Path.of(decompPath), decompiledOutput, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            }
+          } catch (Exception err){
+            LOGGER.warn("Exception at %s\n%s".formatted(decompPath,err));
+          }
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    });
   }
 
   private static byte[] intsToBytes(final int[] ints) {
