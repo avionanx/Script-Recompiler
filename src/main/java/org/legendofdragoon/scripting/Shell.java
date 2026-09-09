@@ -47,7 +47,7 @@ public final class Shell {
     LOGGER.info("Params: %s", Arrays.toString(args));
 
     if(args.length == 0) {
-      LOGGER.info("Commands: [v]ersions, [d]ecompile, [c]ompile, [g]enpatch, [a]pplypatch, [u]ndopatch, [s]trip");
+      LOGGER.info("Commands: [v]ersions, [d]ecompile, [c]ompile, [g]enpatch, [a]ssemble, [p]atch, [u]ndopatch, [s]trip");
       System.exit(1);
       return;
     }
